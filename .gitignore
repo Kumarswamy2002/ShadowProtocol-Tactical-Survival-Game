@@ -89,3 +89,6 @@ ehthumbs.db
 
 # Docker
 *.log
+
+# Scratch
+scratch/

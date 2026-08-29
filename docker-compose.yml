@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile.backend
+    container_name: shadow_protocol_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PROJECT_NAME=Shadow Protocol Backend
+      - POSTGRES_SERVER=db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres_shadow_pass
+      - POSTGRES_DB=shadow_protocol
+      - POSTGRES_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SECRET_KEY=shadow-protocol-production-jwt-secret-key-replace-in-prod
+    depends_on:
+      - db
+      - redis
+    networks:
+      - shadow_network
+
+  db:
+    image: postgres:16-alpine
+    container_name: shadow_protocol_postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres_shadow_pass
+      - POSTGRES_DB=shadow_protocol
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - shadow_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: shadow_protocol_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - shadow_network
+
+networks:
+  shadow_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
