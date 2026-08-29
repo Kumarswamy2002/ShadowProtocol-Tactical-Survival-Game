@@ -76,10 +76,7 @@ ENV/
 *.sqlite
 *.sqlite3
 *.db
-.env
-.env.local
-.env.production
-!.env.example
+.env*
 
 # OS Generated
 .DS_Store
