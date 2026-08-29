@@ -1,15 +1,19 @@
+import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 from app.core.config import settings
 
-# If no explicit DATABASE_URL, default to local sqlite async for testability or postgres async
-DATABASE_URL = settings.DATABASE_URL or f"postgresql+asyncpg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_SERVER}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
-
-# Use aiosqlite fallback if postgres is not available in local test mode
-ASYNC_DB_URL = DATABASE_URL if "postgresql" in DATABASE_URL or "sqlite" in DATABASE_URL else "sqlite+aiosqlite:///./shadow_protocol.db"
+# If DATABASE_URL explicitly provided, use it; otherwise, default to SQLite for standalone zero-config local runs
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    # If in Docker or POSTGRES_SERVER is set to a dedicated host
+    if settings.POSTGRES_SERVER != "localhost":
+        DATABASE_URL = f"postgresql+asyncpg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_SERVER}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
+    else:
+        DATABASE_URL = "sqlite+aiosqlite:///./shadow_protocol.db"
 
 engine = create_async_engine(
-    ASYNC_DB_URL,
+    DATABASE_URL,
     echo=False,
     future=True
 )
