@@ -1,0 +1,22 @@
+{
+  "name": "shadow-protocol-tactical-command",
+  "version": "1.4.0",
+  "description": "Shadow Protocol - Enterprise Tactical Game Client & Simulation Suite",
+  "private": true,
+  "main": "web-game/js/engine.js",
+  "scripts": {
+    "start": "python Backend/app/main.py",
+    "dev": "python Backend/app/main.py --reload",
+    "build": "dotnet build ShadowProtocol.sln --configuration Release",
+    "test": "pytest tests/ -v --cov=Backend/app",
+    "test:dotnet": "dotnet test ShadowProtocol.sln",
+    "lint": "flake8 Backend/app",
+    "serve:web": "python -m http.server 3000 --directory web-game"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

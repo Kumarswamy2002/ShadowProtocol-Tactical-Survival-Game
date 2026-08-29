@@ -1,0 +1,1697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shadow Protocol — Open-World Tactical Survival</title>
+  <meta name="description" content="Play Shadow Protocol: an open-world tactical survival game simulator featuring combat, squad AI, branching dialogue, crafting, and more." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <style>
+    /* ============= RESET & GLOBAL ============= */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg-deep: #06090f;
+      --bg-panel: rgba(10, 18, 32, 0.88);
+      --bg-card: rgba(15, 25, 45, 0.75);
+      --accent: #00e5ff;
+      --accent-dim: #007a8a;
+      --accent-glow: rgba(0, 229, 255, 0.25);
+      --danger: #ff3d5a;
+      --danger-glow: rgba(255, 61, 90, 0.3);
+      --success: #39ff85;
+      --success-glow: rgba(57, 255, 133, 0.25);
+      --warning: #ffc53d;
+      --warning-glow: rgba(255, 197, 61, 0.25);
+      --xp-color: #a78bfa;
+      --text: #e0e8f0;
+      --text-dim: #6b7d99;
+      --border: rgba(0, 229, 255, 0.12);
+      --border-hover: rgba(0, 229, 255, 0.35);
+      --font-display: 'Orbitron', sans-serif;
+      --font-body: 'Rajdhani', sans-serif;
+      --font-mono: 'Share Tech Mono', monospace;
+    }
+    html { font-size: 15px; }
+    body {
+      font-family: var(--font-body);
+      background: var(--bg-deep);
+      color: var(--text);
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+
+    /* ============= ANIMATED BACKGROUND ============= */
+    #bg-canvas {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    }
+
+    /* ============= SCANLINE OVERLAY ============= */
+    .scanlines {
+      position: fixed; inset: 0; z-index: 1; pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 229, 255, 0.015) 2px,
+        rgba(0, 229, 255, 0.015) 4px
+      );
+    }
+
+    /* ============= SCREEN CONTAINER ============= */
+    .screen {
+      display: none;
+      position: relative;
+      z-index: 2;
+      min-height: 100vh;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .screen.active { display: flex; }
+
+    /* ============= TITLE SCREEN ============= */
+    #title-screen {
+      text-align: center;
+    }
+    .title-logo {
+      font-family: var(--font-display);
+      font-weight: 900;
+      font-size: clamp(2.2rem, 6vw, 4.5rem);
+      letter-spacing: 0.18em;
+      color: var(--accent);
+      text-shadow: 0 0 40px var(--accent-glow), 0 0 80px rgba(0,229,255,0.12);
+      animation: titlePulse 3s ease-in-out infinite alternate;
+      margin-bottom: 0.3rem;
+    }
+    .title-sub {
+      font-family: var(--font-body);
+      font-weight: 300;
+      font-size: clamp(0.9rem, 2vw, 1.25rem);
+      letter-spacing: 0.35em;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      margin-bottom: 3rem;
+    }
+    @keyframes titlePulse {
+      0% { text-shadow: 0 0 40px var(--accent-glow), 0 0 80px rgba(0,229,255,0.12); opacity: 0.92; }
+      100% { text-shadow: 0 0 60px rgba(0,229,255,0.4), 0 0 120px rgba(0,229,255,0.18); opacity: 1; }
+    }
+    .btn-play {
+      display: inline-block;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.05rem;
+      letter-spacing: 0.22em;
+      color: var(--bg-deep);
+      background: linear-gradient(135deg, var(--accent), #00b8d4);
+      border: none;
+      padding: 1rem 3.5rem;
+      cursor: pointer;
+      clip-path: polygon(8% 0%, 100% 0%, 92% 100%, 0% 100%);
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 0 30px var(--accent-glow);
+      text-transform: uppercase;
+    }
+    .btn-play:hover {
+      transform: scale(1.06);
+      box-shadow: 0 0 50px rgba(0,229,255,0.45);
+    }
+    .title-version {
+      margin-top: 2.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      letter-spacing: 0.12em;
+    }
+
+    /* ============= HUD (GAME SCREEN) ============= */
+    #game-screen { padding: 0; }
+    .hud {
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 10;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.6rem 1.5rem;
+      background: linear-gradient(180deg, rgba(6,9,15,0.95) 0%, rgba(6,9,15,0.7) 100%);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+    }
+    .hud-left, .hud-right { display: flex; align-items: center; gap: 1.2rem; }
+    .hud-logo {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 0.82rem;
+      color: var(--accent);
+      letter-spacing: 0.15em;
+    }
+    .hud-stat {
+      display: flex; align-items: center; gap: 0.35rem;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+    }
+    .hud-stat .label { color: var(--text-dim); }
+    .hud-stat .value { font-weight: 600; }
+    .hud-stat.hp .value { color: var(--success); }
+    .hud-stat.credits .value { color: var(--warning); }
+    .hud-stat.level .value { color: var(--xp-color); }
+    .hud-region {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+    }
+
+    /* ============= MAIN GAME AREA ============= */
+    .game-body {
+      margin-top: 52px;
+      display: flex;
+      min-height: calc(100vh - 52px);
+    }
+
+    /* ---- SIDEBAR ---- */
+    .sidebar {
+      width: 260px;
+      min-width: 260px;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 1.2rem 0;
+    }
+    .sidebar-title {
+      font-family: var(--font-display);
+      font-size: 0.62rem;
+      letter-spacing: 0.3em;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      padding: 0 1.2rem;
+      margin-bottom: 0.8rem;
+    }
+    .nav-btn {
+      display: flex; align-items: center; gap: 0.7rem;
+      width: 100%;
+      padding: 0.75rem 1.2rem;
+      border: none;
+      background: transparent;
+      color: var(--text-dim);
+      font-family: var(--font-body);
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: left;
+      border-left: 3px solid transparent;
+      letter-spacing: 0.03em;
+    }
+    .nav-btn:hover { background: rgba(0,229,255,0.05); color: var(--text); }
+    .nav-btn.active {
+      color: var(--accent);
+      background: rgba(0,229,255,0.08);
+      border-left-color: var(--accent);
+    }
+    .nav-btn .nav-icon { font-size: 1.1rem; width: 1.5rem; text-align: center; }
+    .nav-btn .nav-tag {
+      margin-left: auto;
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      background: rgba(0,229,255,0.12);
+      color: var(--accent);
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      letter-spacing: 0.05em;
+    }
+
+    /* ---- CONTENT AREA ---- */
+    .content {
+      flex: 1;
+      padding: 2rem 2.5rem;
+      overflow-y: auto;
+      max-height: calc(100vh - 52px);
+    }
+
+    /* ============= PANELS & CARDS ============= */
+    .panel {
+      display: none;
+    }
+    .panel.active { display: block; }
+    .panel-header {
+      display: flex; align-items: center; gap: 0.8rem;
+      margin-bottom: 1.8rem;
+    }
+    .panel-header h2 {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.3rem;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+    }
+    .panel-header .tag {
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      background: rgba(0,229,255,0.12);
+      color: var(--accent);
+      padding: 0.2rem 0.6rem;
+      border-radius: 3px;
+      letter-spacing: 0.08em;
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 1.2rem;
+      backdrop-filter: blur(8px);
+      transition: border-color 0.3s;
+    }
+    .card:hover { border-color: var(--border-hover); }
+    .card-title {
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      letter-spacing: 0.18em;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+
+    /* ============= STAT BARS ============= */
+    .stat-row {
+      display: flex; align-items: center; gap: 0.8rem;
+      margin-bottom: 0.7rem;
+    }
+    .stat-label {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      width: 90px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .stat-bar-wrap {
+      flex: 1;
+      height: 18px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+    .stat-bar {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+      position: relative;
+    }
+    .stat-bar::after {
+      content: '';
+      position: absolute;
+      top: 0; right: 0; bottom: 0;
+      width: 40px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15));
+    }
+    .stat-bar.hp { background: linear-gradient(90deg, #1a8a4a, var(--success)); box-shadow: 0 0 12px var(--success-glow); }
+    .stat-bar.stamina { background: linear-gradient(90deg, #1a6a9a, var(--accent)); box-shadow: 0 0 12px var(--accent-glow); }
+    .stat-bar.hunger { background: linear-gradient(90deg, #9a6a1a, var(--warning)); box-shadow: 0 0 12px var(--warning-glow); }
+    .stat-bar.hydration { background: linear-gradient(90deg, #1a4a9a, #4aa0ff); box-shadow: 0 0 12px rgba(74,160,255,0.25); }
+    .stat-bar.xp { background: linear-gradient(90deg, #5a3aaa, var(--xp-color)); box-shadow: 0 0 12px rgba(167,139,250,0.25); }
+    .stat-value {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text);
+      width: 52px;
+      text-align: right;
+    }
+
+    /* ============= BUTTONS ============= */
+    .btn {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      padding: 0.6rem 1.5rem;
+      border: 1px solid var(--accent);
+      background: rgba(0,229,255,0.08);
+      color: var(--accent);
+      cursor: pointer;
+      transition: all 0.25s;
+      text-transform: uppercase;
+      clip-path: polygon(6% 0%, 100% 0%, 94% 100%, 0% 100%);
+    }
+    .btn:hover {
+      background: rgba(0,229,255,0.2);
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn.danger { border-color: var(--danger); color: var(--danger); background: rgba(255,61,90,0.08); }
+    .btn.danger:hover { background: rgba(255,61,90,0.2); box-shadow: 0 0 20px var(--danger-glow); }
+    .btn.success { border-color: var(--success); color: var(--success); background: rgba(57,255,133,0.08); }
+    .btn.success:hover { background: rgba(57,255,133,0.2); box-shadow: 0 0 20px var(--success-glow); }
+    .btn-group { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-top: 1rem; }
+
+    /* ============= COMBAT LOG ============= */
+    .combat-log {
+      background: rgba(0,0,0,0.35);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      max-height: 320px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      line-height: 1.7;
+    }
+    .combat-log::-webkit-scrollbar { width: 4px; }
+    .combat-log::-webkit-scrollbar-track { background: transparent; }
+    .combat-log::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 2px; }
+    .log-line { padding: 0.15rem 0; opacity: 0; animation: logFade 0.3s forwards; }
+    .log-line.info { color: var(--text-dim); }
+    .log-line.action { color: var(--accent); }
+    .log-line.damage { color: var(--danger); }
+    .log-line.heal { color: var(--success); }
+    .log-line.system { color: var(--warning); }
+    .log-line.loot { color: var(--xp-color); }
+    @keyframes logFade { to { opacity: 1; } }
+
+    /* ============= WEAPON TABLE ============= */
+    .weapon-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+    }
+    .weapon-table th {
+      text-align: left;
+      padding: 0.6rem 0.8rem;
+      color: var(--text-dim);
+      font-weight: 400;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.68rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .weapon-table td {
+      padding: 0.6rem 0.8rem;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+    .weapon-table tr { transition: background 0.2s; cursor: pointer; }
+    .weapon-table tr:hover { background: rgba(0,229,255,0.05); }
+    .weapon-table tr.selected { background: rgba(0,229,255,0.1); border-left: 2px solid var(--accent); }
+    .weapon-table .weapon-name { color: var(--text); font-weight: 600; }
+    .weapon-table .dmg-val { color: var(--danger); }
+    .weapon-table .pen-val { color: var(--warning); }
+
+    /* ============= SQUAD GRID ============= */
+    .squad-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+    .squad-member {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.2rem;
+      transition: all 0.3s;
+    }
+    .squad-member:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+    .squad-member .role {
+      font-family: var(--font-display);
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      margin-bottom: 0.6rem;
+    }
+    .squad-member .role.commander { color: var(--warning); }
+    .squad-member .role.scout { color: var(--accent); }
+    .squad-member .role.assault { color: var(--danger); }
+    .squad-member .role.sniper { color: var(--xp-color); }
+    .squad-member .state-badge {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 0.62rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 3px;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.5rem;
+    }
+    .state-badge.idle { background: rgba(107,125,153,0.2); color: var(--text-dim); }
+    .state-badge.patrol { background: rgba(0,229,255,0.15); color: var(--accent); }
+    .state-badge.attack { background: rgba(255,61,90,0.15); color: var(--danger); }
+    .state-badge.overwatch { background: rgba(167,139,250,0.15); color: var(--xp-color); }
+    .state-badge.flank { background: rgba(255,197,61,0.15); color: var(--warning); }
+    .state-badge.cover { background: rgba(57,255,133,0.15); color: var(--success); }
+    .squad-member .order {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      margin-top: 0.3rem;
+    }
+
+    /* ============= DIALOGUE ============= */
+    .dialogue-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .dialogue-speaker {
+      font-family: var(--font-display);
+      font-size: 0.68rem;
+      letter-spacing: 0.18em;
+      color: var(--warning);
+      margin-bottom: 0.5rem;
+    }
+    .dialogue-text {
+      font-family: var(--font-body);
+      font-size: 1.05rem;
+      line-height: 1.6;
+      color: var(--text);
+      font-style: italic;
+    }
+    .dialogue-choices {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      margin-top: 1.2rem;
+    }
+    .dialogue-choice {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0.8rem 1.2rem;
+      background: rgba(0,229,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.25s;
+      font-family: var(--font-body);
+      font-size: 0.92rem;
+      color: var(--text);
+      text-align: left;
+    }
+    .dialogue-choice:hover {
+      border-color: var(--accent);
+      background: rgba(0,229,255,0.1);
+      transform: translateX(4px);
+    }
+    .dialogue-choice .choice-num {
+      font-family: var(--font-display);
+      font-size: 0.68rem;
+      color: var(--accent);
+      min-width: 1.5rem;
+    }
+    .dialogue-choice .choice-tag {
+      margin-left: auto;
+      font-family: var(--font-mono);
+      font-size: 0.58rem;
+      padding: 0.12rem 0.4rem;
+      border-radius: 3px;
+      letter-spacing: 0.06em;
+    }
+    .choice-tag.paragon { background: rgba(57,255,133,0.15); color: var(--success); }
+    .choice-tag.renegade { background: rgba(255,61,90,0.15); color: var(--danger); }
+    .choice-tag.story { background: rgba(167,139,250,0.15); color: var(--xp-color); }
+    .reputation-change {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      padding: 0.6rem 1rem;
+      border-radius: 6px;
+      margin-top: 0.8rem;
+      animation: logFade 0.5s forwards;
+    }
+    .reputation-change.positive {
+      background: rgba(57,255,133,0.08);
+      border: 1px solid rgba(57,255,133,0.2);
+      color: var(--success);
+    }
+    .reputation-change.negative {
+      background: rgba(255,61,90,0.08);
+      border: 1px solid rgba(255,61,90,0.2);
+      color: var(--danger);
+    }
+
+    /* ============= CRAFTING ============= */
+    .recipe-card {
+      display: flex; align-items: center; gap: 1rem;
+      padding: 1rem 1.2rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 0.8rem;
+      transition: all 0.3s;
+    }
+    .recipe-card:hover { border-color: var(--border-hover); }
+    .recipe-icon {
+      width: 42px; height: 42px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem;
+      background: rgba(0,229,255,0.08);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .recipe-info { flex: 1; }
+    .recipe-name {
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      color: var(--text);
+      margin-bottom: 0.25rem;
+    }
+    .recipe-mats {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--text-dim);
+    }
+    .recipe-mats .available { color: var(--success); }
+    .recipe-mats .unavailable { color: var(--danger); }
+    .craft-btn {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 0.62rem;
+      letter-spacing: 0.1em;
+      padding: 0.45rem 1rem;
+      border: 1px solid var(--accent);
+      background: rgba(0,229,255,0.08);
+      color: var(--accent);
+      cursor: pointer;
+      transition: all 0.25s;
+      text-transform: uppercase;
+      border-radius: 4px;
+    }
+    .craft-btn:hover { background: rgba(0,229,255,0.22); box-shadow: 0 0 15px var(--accent-glow); }
+    .craft-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .craft-btn.crafted { border-color: var(--success); color: var(--success); background: rgba(57,255,133,0.12); }
+
+    /* ============= INVENTORY ============= */
+    .inventory-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 0.7rem;
+      margin-top: 1rem;
+    }
+    .inv-slot {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.8rem;
+      text-align: center;
+      transition: all 0.3s;
+      min-height: 90px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .inv-slot:hover { border-color: var(--border-hover); background: rgba(0,229,255,0.03); }
+    .inv-icon { font-size: 1.5rem; margin-bottom: 0.3rem; }
+    .inv-name { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text); margin-bottom: 0.15rem; }
+    .inv-qty { font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-dim); }
+
+    /* ============= SAVE SYSTEM ============= */
+    .save-json {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--accent);
+      overflow-x: auto;
+      white-space: pre;
+      line-height: 1.5;
+      max-height: 350px;
+      overflow-y: auto;
+    }
+
+    /* ============= TOAST NOTIFICATION ============= */
+    .toast-container {
+      position: fixed;
+      top: 64px;
+      right: 1.5rem;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .toast {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      padding: 0.7rem 1.2rem;
+      border-radius: 6px;
+      animation: toastIn 0.35s ease-out, toastOut 0.35s 2.6s ease-in forwards;
+      max-width: 360px;
+    }
+    .toast.success { background: rgba(57,255,133,0.12); border: 1px solid rgba(57,255,133,0.3); color: var(--success); }
+    .toast.danger { background: rgba(255,61,90,0.12); border: 1px solid rgba(255,61,90,0.3); color: var(--danger); }
+    .toast.info { background: rgba(0,229,255,0.12); border: 1px solid rgba(0,229,255,0.3); color: var(--accent); }
+    .toast.warning { background: rgba(255,197,61,0.12); border: 1px solid rgba(255,197,61,0.3); color: var(--warning); }
+    @keyframes toastIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateY(-10px); } }
+
+    /* ============= MINIMAP ============= */
+    .minimap-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 500px;
+      aspect-ratio: 1;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+    .minimap-canvas { width: 100%; height: 100%; }
+
+    /* ============= RESPONSIVE ============= */
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .content { padding: 1.5rem 1rem; }
+      .squad-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ============= GLITCH EFFECT ============= */
+    .glitch {
+      animation: glitch 0.3s ease-in-out;
+    }
+    @keyframes glitch {
+      0% { transform: translate(0); filter: none; }
+      20% { transform: translate(-2px, 1px); filter: hue-rotate(90deg); }
+      40% { transform: translate(2px, -1px); filter: hue-rotate(-90deg); }
+      60% { transform: translate(-1px, -1px); filter: hue-rotate(45deg); }
+      80% { transform: translate(1px, 2px); filter: none; }
+      100% { transform: translate(0); filter: none; }
+    }
+
+    /* ============= FADE-IN SECTIONS ============= */
+    .fade-in { opacity: 0; transform: translateY(12px); animation: fadeUp 0.5s ease-out forwards; }
+    .fade-in:nth-child(2) { animation-delay: 0.1s; }
+    .fade-in:nth-child(3) { animation-delay: 0.2s; }
+    .fade-in:nth-child(4) { animation-delay: 0.3s; }
+    @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+
+    /* ============= MOBILE NAV ============= */
+    .mobile-nav {
+      display: none;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 20;
+      background: rgba(6,9,15,0.95);
+      border-top: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      padding: 0.4rem 0;
+    }
+    .mobile-nav-inner {
+      display: flex;
+      justify-content: space-around;
+    }
+    .mobile-nav-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
+      background: none; border: none; color: var(--text-dim); cursor: pointer;
+      padding: 0.4rem 0.6rem; font-size: 1.1rem; transition: color 0.2s;
+    }
+    .mobile-nav-btn span { font-family: var(--font-mono); font-size: 0.52rem; letter-spacing: 0.05em; }
+    .mobile-nav-btn.active { color: var(--accent); }
+    @media (max-width: 768px) {
+      .mobile-nav { display: block; }
+      .game-body { margin-bottom: 60px; }
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="bg-canvas"></canvas>
+  <div class="scanlines"></div>
+
+  <!-- ========= TITLE SCREEN ========= -->
+  <div id="title-screen" class="screen active">
+    <div class="title-logo">SHADOW PROTOCOL</div>
+    <div class="title-sub">Open-World Tactical Survival</div>
+    <button class="btn-play" id="btn-start" onclick="startGame()">INITIALIZE</button>
+    <div class="title-version">ENGINE v1.0.0 &bull; SECTOR: VEYRA RUINS &bull; BUILD 2026.08</div>
+  </div>
+
+  <!-- ========= GAME SCREEN ========= -->
+  <div id="game-screen" class="screen">
+
+    <!-- HUD -->
+    <div class="hud">
+      <div class="hud-left">
+        <div class="hud-logo">SP://</div>
+        <div class="hud-stat hp"><span class="label">HP</span><span class="value" id="hud-hp">100</span></div>
+        <div class="hud-stat credits"><span class="label">CR</span><span class="value" id="hud-credits">500</span></div>
+        <div class="hud-stat level"><span class="label">LVL</span><span class="value" id="hud-level">1</span></div>
+      </div>
+      <div class="hud-right">
+        <div class="hud-region" id="hud-region">SECTOR 4 — INDUSTRIAL DISTRICT</div>
+      </div>
+    </div>
+
+    <div class="game-body">
+      <!-- SIDEBAR -->
+      <nav class="sidebar">
+        <div class="sidebar-title">Operations</div>
+        <button class="nav-btn active" data-panel="survival" onclick="switchPanel('survival')">
+          <span class="nav-icon">💊</span> Survival <span class="nav-tag">VITALS</span>
+        </button>
+        <button class="nav-btn" data-panel="combat" onclick="switchPanel('combat')">
+          <span class="nav-icon">🎯</span> Combat <span class="nav-tag">TACTICAL</span>
+        </button>
+        <button class="nav-btn" data-panel="squad" onclick="switchPanel('squad')">
+          <span class="nav-icon">👥</span> Squad AI <span class="nav-tag">INTEL</span>
+        </button>
+        <button class="nav-btn" data-panel="dialogue" onclick="switchPanel('dialogue')">
+          <span class="nav-icon">💬</span> Dialogue <span class="nav-tag">NPC</span>
+        </button>
+        <button class="nav-btn" data-panel="crafting" onclick="switchPanel('crafting')">
+          <span class="nav-icon">⚒️</span> Crafting <span class="nav-tag">FORGE</span>
+        </button>
+        <button class="nav-btn" data-panel="save" onclick="switchPanel('save')">
+          <span class="nav-icon">💾</span> Save System <span class="nav-tag">DATA</span>
+        </button>
+      </nav>
+
+      <!-- CONTENT -->
+      <main class="content">
+
+        <!-- === SURVIVAL PANEL === -->
+        <div id="panel-survival" class="panel active">
+          <div class="panel-header fade-in"><h2>Player Vitals & Survival</h2><span class="tag">REAL-TIME</span></div>
+
+          <div class="card fade-in">
+            <div class="card-title">Vital Signs</div>
+            <div class="stat-row">
+              <div class="stat-label">Health</div>
+              <div class="stat-bar-wrap"><div class="stat-bar hp" id="bar-hp" style="width:100%"></div></div>
+              <div class="stat-value" id="val-hp">100.0</div>
+            </div>
+            <div class="stat-row">
+              <div class="stat-label">Stamina</div>
+              <div class="stat-bar-wrap"><div class="stat-bar stamina" id="bar-stamina" style="width:100%"></div></div>
+              <div class="stat-value" id="val-stamina">100.0</div>
+            </div>
+            <div class="stat-row">
+              <div class="stat-label">Hunger</div>
+              <div class="stat-bar-wrap"><div class="stat-bar hunger" id="bar-hunger" style="width:100%"></div></div>
+              <div class="stat-value" id="val-hunger">100.0</div>
+            </div>
+            <div class="stat-row">
+              <div class="stat-label">Hydration</div>
+              <div class="stat-bar-wrap"><div class="stat-bar hydration" id="bar-hydration" style="width:100%"></div></div>
+              <div class="stat-value" id="val-hydration">100.0</div>
+            </div>
+            <div class="stat-row">
+              <div class="stat-label">XP</div>
+              <div class="stat-bar-wrap"><div class="stat-bar xp" id="bar-xp" style="width:0%"></div></div>
+              <div class="stat-value" id="val-xp">0/100</div>
+            </div>
+          </div>
+
+          <div class="card fade-in">
+            <div class="card-title">Actions</div>
+            <div class="btn-group">
+              <button class="btn" onclick="doSprint()">Sprint Sector 4</button>
+              <button class="btn danger" onclick="doTakeHit()">Take Sniper Hit</button>
+              <button class="btn success" onclick="doHeal()">Use Medkit</button>
+              <button class="btn" onclick="doRest()">Rest & Recover</button>
+            </div>
+          </div>
+
+          <div class="card fade-in">
+            <div class="card-title">Activity Log</div>
+            <div class="combat-log" id="survival-log">
+              <div class="log-line system">System online. Monitoring player vitals...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- === COMBAT PANEL === -->
+        <div id="panel-combat" class="panel">
+          <div class="panel-header fade-in"><h2>Tactical Combat & Ballistics</h2><span class="tag">WEAPONS</span></div>
+
+          <div class="card fade-in">
+            <div class="card-title">Arsenal</div>
+            <table class="weapon-table">
+              <thead>
+                <tr><th>Weapon</th><th>Damage</th><th>Range</th><th>Pen</th><th>RPM</th><th>Class</th></tr>
+              </thead>
+              <tbody id="weapon-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="card fade-in">
+            <div class="card-title">Engagement Simulation</div>
+            <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem">
+              <label style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-dim)">
+                Target Distance: <input type="range" id="combat-dist" min="5" max="200" value="35" style="vertical-align:middle;width:140px;accent-color:var(--accent)">
+                <span id="combat-dist-val" style="color:var(--accent)">35m</span>
+              </label>
+              <label style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-dim)">
+                Target Armor: <input type="range" id="combat-armor" min="0" max="100" value="40" style="vertical-align:middle;width:140px;accent-color:var(--warning)">
+                <span id="combat-armor-val" style="color:var(--warning)">40</span>
+              </label>
+              <button class="btn danger" onclick="runEngagement()">Engage Target</button>
+            </div>
+            <div class="combat-log" id="combat-log">
+              <div class="log-line system">Awaiting engagement parameters...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- === SQUAD PANEL === -->
+        <div id="panel-squad" class="panel">
+          <div class="panel-header fade-in"><h2>Squad AI & Coordination</h2><span class="tag">TACTICAL</span></div>
+
+          <div class="card fade-in">
+            <div class="card-title">Directorate Squad — Industrial District</div>
+            <div class="squad-grid" id="squad-grid"></div>
+          </div>
+
+          <div class="card fade-in">
+            <div class="card-title">Tactical Orders</div>
+            <div class="btn-group">
+              <button class="btn" onclick="squadOrder('hold')">Hold Position</button>
+              <button class="btn danger" onclick="squadOrder('attack')">Attack Player</button>
+              <button class="btn" onclick="squadOrder('flank')">Flank Maneuver</button>
+              <button class="btn success" onclick="squadOrder('retreat')">Retreat</button>
+            </div>
+          </div>
+
+          <div class="card fade-in">
+            <div class="card-title">Tactical Map</div>
+            <div class="minimap-wrap">
+              <canvas class="minimap-canvas" id="minimap-canvas"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- === DIALOGUE PANEL === -->
+        <div id="panel-dialogue" class="panel">
+          <div class="panel-header fade-in"><h2>Branching Dialogue</h2><span class="tag">NPC</span></div>
+          <div id="dialogue-container"></div>
+        </div>
+
+        <!-- === CRAFTING PANEL === -->
+        <div id="panel-crafting" class="panel">
+          <div class="panel-header fade-in"><h2>Crafting & Inventory</h2><span class="tag">FORGE</span></div>
+
+          <div class="card fade-in">
+            <div class="card-title">Workbench Recipes</div>
+            <div id="recipe-list"></div>
+          </div>
+
+          <div class="card fade-in">
+            <div class="card-title">Inventory</div>
+            <div class="inventory-grid" id="inventory-grid"></div>
+          </div>
+        </div>
+
+        <!-- === SAVE PANEL === -->
+        <div id="panel-save" class="panel">
+          <div class="panel-header fade-in"><h2>Save & Persistence</h2><span class="tag">CLOUD</span></div>
+
+          <div class="card fade-in">
+            <div class="card-title">Delta Save Snapshot</div>
+            <div class="btn-group" style="margin-bottom:1rem">
+              <button class="btn success" onclick="generateSave()">Generate Save</button>
+              <button class="btn" onclick="loadSave()">Load Save</button>
+            </div>
+            <div class="save-json" id="save-json">// No save data generated yet. Click "Generate Save" to create a snapshot.</div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+
+    <!-- MOBILE NAV -->
+    <div class="mobile-nav">
+      <div class="mobile-nav-inner">
+        <button class="mobile-nav-btn active" data-panel="survival" onclick="switchPanel('survival')">💊<span>VITALS</span></button>
+        <button class="mobile-nav-btn" data-panel="combat" onclick="switchPanel('combat')">🎯<span>COMBAT</span></button>
+        <button class="mobile-nav-btn" data-panel="squad" onclick="switchPanel('squad')">👥<span>SQUAD</span></button>
+        <button class="mobile-nav-btn" data-panel="dialogue" onclick="switchPanel('dialogue')">💬<span>NPC</span></button>
+        <button class="mobile-nav-btn" data-panel="crafting" onclick="switchPanel('crafting')">⚒️<span>CRAFT</span></button>
+        <button class="mobile-nav-btn" data-panel="save" onclick="switchPanel('save')">💾<span>SAVE</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script>
+    /* ============================
+       GAME STATE
+    ============================ */
+    const state = {
+      hp: 100, maxHp: 100,
+      stamina: 100, maxStamina: 100,
+      hunger: 100, hydration: 100,
+      level: 1, xp: 0, xpNext: 100,
+      credits: 500,
+      armor: 50,
+      region: "SECTOR 4 — INDUSTRIAL DISTRICT",
+      inventory: {
+        scrap_metal: 12, electronics: 4, bandage_cloth: 6,
+        antiseptic: 3, gunpowder: 5, lead_ingot: 4,
+        weapon_parts: 0, medkit_military: 1, ammo_556_ap: 30
+      },
+      squad: [
+        { role: "Commander", state: "IDLE", order: "HOLD", x: 200, y: 180, color: "#ffc53d" },
+        { role: "Scout", state: "PATROL", order: "SEARCH", x: 280, y: 120, color: "#00e5ff" },
+        { role: "Assault", state: "IDLE", order: "HOLD", x: 160, y: 250, color: "#ff3d5a" },
+        { role: "Sniper", state: "OVERWATCH", order: "HOLD", x: 350, y: 80, color: "#a78bfa" },
+      ],
+      player: { x: 120, y: 320 },
+      dialogueNode: 0,
+    };
+
+    const weapons = [
+      { name: "V-9 Tactical Sidearm", dmg: 28, range: 35, pen: 0.20, rpm: 400, type: "Pistol", icon: "🔫" },
+      { name: "Spectre-45 SMG", dmg: 22, range: 45, pen: 0.25, rpm: 750, type: "SMG", icon: "🔫" },
+      { name: "AR-556 Directorate Rifle", dmg: 36, range: 75, pen: 0.45, rpm: 650, type: "Rifle", icon: "🎯" },
+      { name: "Ghost-762 Marksman Rifle", dmg: 95, range: 180, pen: 0.75, rpm: 45, type: "DMR", icon: "🎯" },
+      { name: "Havoc-12 Shotgun", dmg: 120, range: 15, pen: 0.10, rpm: 80, type: "Shotgun", icon: "💥" },
+      { name: "Stinger RPG", dmg: 350, range: 120, pen: 0.95, rpm: 5, type: "Heavy", icon: "🚀" },
+    ];
+
+    const recipes = [
+      { id: "weapon_parts", name: "Weapon Parts", icon: "🔧", output: 2, mats: { scrap_metal: 3, electronics: 1 } },
+      { id: "medkit_military", name: "Military Medkit", icon: "💊", output: 1, mats: { bandage_cloth: 2, antiseptic: 1 } },
+      { id: "ammo_556_ap", name: "5.56mm AP Ammo", icon: "🔸", output: 30, mats: { gunpowder: 2, lead_ingot: 2 } },
+    ];
+
+    const dialogueTree = [
+      {
+        speaker: "INFORMANT CALEB",
+        location: "Settler Safehouse — Sector 4",
+        text: "You made it through the Directorate perimeter. Not many operatives manage that. Did you find the cipher drive?",
+        choices: [
+          { text: "Yes, here is the encrypted drive.", tag: "PARAGON", tagClass: "paragon", next: 1, rep: { faction: "FreeHaven Settlers", amount: 10 }, req: "cipher_drive" },
+          { text: "Why should I give it to you before you pay me?", tag: "RENEGADE", tagClass: "renegade", next: 2, rep: { faction: "FreeHaven Settlers", amount: -5 } },
+          { text: "I discovered records proving the Blackout wasn't an accident.", tag: "STORY", tagClass: "story", next: 3, rep: { faction: "FreeHaven Settlers", amount: 15 } },
+        ]
+      },
+      {
+        speaker: "INFORMANT CALEB",
+        location: "Settler Safehouse — Sector 4",
+        text: "Outstanding work, operative. The council will be pleased. We'll get this decrypted and find out what the Directorate is hiding. Here — take this as payment.",
+        choices: [
+          { text: "What does the cipher contain?", tag: "STORY", tagClass: "story", next: 4, rep: { faction: "FreeHaven Settlers", amount: 5 } },
+          { text: "Just make sure the payment is worth my time.", tag: "RENEGADE", tagClass: "renegade", next: 5, rep: null },
+        ]
+      },
+      {
+        speaker: "INFORMANT CALEB",
+        location: "Settler Safehouse — Sector 4",
+        text: "Fair enough, operative. Trust is earned, not given. I'll transfer half the credits now — the rest when you hand over the drive. Deal?",
+        choices: [
+          { text: "Fine. Half now, half later.", tag: "PARAGON", tagClass: "paragon", next: 6, rep: { faction: "FreeHaven Settlers", amount: 5 }, credits: 300 },
+          { text: "No deal. Full payment or I walk.", tag: "RENEGADE", tagClass: "renegade", next: 7, rep: { faction: "FreeHaven Settlers", amount: -10 } },
+        ]
+      },
+      {
+        speaker: "INFORMANT CALEB",
+        location: "Settler Safehouse — Sector 4",
+        text: "Mother of God... then the Directorate engineered the collapse themselves. The Blackout wasn't a catastrophe — it was a weapon. We need to alert the council immediately.",
+        choices: [
+          { text: "I'll help you get the word out. People deserve to know.", tag: "PARAGON", tagClass: "paragon", next: 8, rep: { faction: "FreeHaven Settlers", amount: 20 }, xp: 50 },
+          { text: "This information is leverage. We should use it carefully.", tag: "RENEGADE", tagClass: "renegade", next: 9, rep: { faction: "Shadow Network", amount: 15 }, xp: 50 },
+        ]
+      },
+      {
+        speaker: "INFORMANT CALEB",
+        location: "Settler Safehouse — Sector 4",
+        text: "The cipher contains coordinates to something called 'Project Veyra.' We believe it's connected to pre-Blackout military research. Something powerful enough to change the balance of power in the wastelands.",
+        choices: [
+          { text: "[Continue Investigation]", tag: "STORY", tagClass: "story", next: -1, rep: null, xp: 75 },
+        ]
+      },
+      {
+        speaker: "INFORMANT CALEB",
+        location: "Settler Safehouse — Sector 4",
+        text: "You'll get what's coming to you, operative. The settlers always pay their debts.",
+        choices: [
+          { text: "[End Conversation]", tag: "STORY", tagClass: "story", next: -1, rep: null },
+        ]
+      },
+      {
+        speaker: "INFORMANT CALEB",
+        location: "Settler Safehouse — Sector 4",
+        text: "A pragmatist. I can work with that. Here's 300 credits. The drive, please.",
+        choices: [
+          { text: "[Hand over the drive]", tag: "PARAGON", tagClass: "paragon", next: -1, rep: { faction: "FreeHaven Settlers", amount: 10 }, xp: 40 },
+        ]
+      },
+      {
+        speaker: "INFORMANT CALEB",
+        location: "Settler Safehouse — Sector 4",
+        text: "Then walk, merc. But know this — the Directorate doesn't negotiate. When they come for you, don't expect our help.",
+        choices: [
+          { text: "[Leave the Safehouse]", tag: "RENEGADE", tagClass: "renegade", next: -1, rep: { faction: "FreeHaven Settlers", amount: -15 } },
+        ]
+      },
+      {
+        speaker: "INFORMANT CALEB",
+        location: "Settler Safehouse — Sector 4",
+        text: "You're a good person, operative. The wasteland needs more like you. I'll arrange a meeting with the FreeHaven Council. This changes everything.",
+        choices: [
+          { text: "[Mission Complete: 'Deliver Cipher']", tag: "STORY", tagClass: "story", next: -1, rep: null, xp: 100 },
+        ]
+      },
+      {
+        speaker: "INFORMANT CALEB",
+        location: "Settler Safehouse — Sector 4",
+        text: "Smart. Very smart. The Shadow Network would value someone with your instincts. I'll keep this between us — for now.",
+        choices: [
+          { text: "[Mission Complete: 'Shadow Alliance']", tag: "STORY", tagClass: "story", next: -1, rep: null, xp: 100 },
+        ]
+      },
+    ];
+
+    /* ============================
+       BACKGROUND PARTICLES
+    ============================ */
+    const bgCanvas = document.getElementById('bg-canvas');
+    const bgCtx = bgCanvas.getContext('2d');
+    let particles = [];
+
+    function resizeBg() {
+      bgCanvas.width = window.innerWidth;
+      bgCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeBg);
+    resizeBg();
+
+    function initParticles() {
+      particles = [];
+      const count = Math.floor(window.innerWidth * window.innerHeight / 8000);
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: Math.random() * bgCanvas.width,
+          y: Math.random() * bgCanvas.height,
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: (Math.random() - 0.5) * 0.3,
+          r: Math.random() * 1.5 + 0.3,
+          a: Math.random() * 0.4 + 0.05,
+        });
+      }
+    }
+    initParticles();
+
+    function animateBg() {
+      bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+      for (const p of particles) {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0) p.x = bgCanvas.width;
+        if (p.x > bgCanvas.width) p.x = 0;
+        if (p.y < 0) p.y = bgCanvas.height;
+        if (p.y > bgCanvas.height) p.y = 0;
+        bgCtx.beginPath();
+        bgCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        bgCtx.fillStyle = `rgba(0, 229, 255, ${p.a})`;
+        bgCtx.fill();
+      }
+      // Draw connections
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < 100) {
+            bgCtx.beginPath();
+            bgCtx.moveTo(particles[i].x, particles[i].y);
+            bgCtx.lineTo(particles[j].x, particles[j].y);
+            bgCtx.strokeStyle = `rgba(0, 229, 255, ${0.06 * (1 - dist/100)})`;
+            bgCtx.lineWidth = 0.5;
+            bgCtx.stroke();
+          }
+        }
+      }
+      requestAnimationFrame(animateBg);
+    }
+    animateBg();
+
+    /* ============================
+       SCREEN MANAGEMENT
+    ============================ */
+    function startGame() {
+      document.getElementById('title-screen').classList.remove('active');
+      document.getElementById('game-screen').classList.add('active');
+      initWeaponTable();
+      initSquadGrid();
+      renderDialogue();
+      renderRecipes();
+      renderInventory();
+      drawMinimap();
+      toast('System online. Welcome, Operative.', 'info');
+    }
+
+    function switchPanel(name) {
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('panel-' + name).classList.add('active');
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.panel === name));
+      document.querySelectorAll('.mobile-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.panel === name));
+      if (name === 'squad') setTimeout(drawMinimap, 50);
+    }
+
+    /* ============================
+       TOAST NOTIFICATIONS
+    ============================ */
+    function toast(msg, type = 'info') {
+      const el = document.createElement('div');
+      el.className = `toast ${type}`;
+      el.textContent = msg;
+      document.getElementById('toast-container').appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    }
+
+    /* ============================
+       SURVIVAL SYSTEM
+    ============================ */
+    function updateBars() {
+      setBars('hp', state.hp, state.maxHp);
+      setBars('stamina', state.stamina, state.maxStamina);
+      setBars('hunger', state.hunger, 100);
+      setBars('hydration', state.hydration, 100);
+      document.getElementById('bar-xp').style.width = (state.xp / state.xpNext * 100) + '%';
+      document.getElementById('val-xp').textContent = `${state.xp}/${state.xpNext}`;
+      document.getElementById('hud-hp').textContent = Math.round(state.hp);
+      document.getElementById('hud-credits').textContent = state.credits;
+      document.getElementById('hud-level').textContent = state.level;
+    }
+
+    function setBars(id, val, max) {
+      document.getElementById('bar-' + id).style.width = (val / max * 100) + '%';
+      document.getElementById('val-' + id).textContent = val.toFixed(1);
+    }
+
+    function addLog(containerId, msg, type = 'info') {
+      const log = document.getElementById(containerId);
+      const el = document.createElement('div');
+      el.className = `log-line ${type}`;
+      el.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      log.appendChild(el);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function gainXP(amount) {
+      state.xp += amount;
+      while (state.xp >= state.xpNext) {
+        state.xp -= state.xpNext;
+        state.level++;
+        state.xpNext = Math.floor(state.xpNext * 1.5);
+        state.maxHp += 10;
+        state.hp = state.maxHp;
+        toast(`LEVEL UP! Now level ${state.level}`, 'success');
+        addLog('survival-log', `LEVEL UP → Level ${state.level}! Max HP increased to ${state.maxHp}`, 'system');
+      }
+      updateBars();
+    }
+
+    function doSprint() {
+      addLog('survival-log', 'Player begins SPRINTING across Sector 4...', 'action');
+      let tick = 0;
+      const interval = setInterval(() => {
+        tick++;
+        state.stamina = Math.max(0, state.stamina - 12);
+        state.hunger = Math.max(0, state.hunger - 0.5);
+        state.hydration = Math.max(0, state.hydration - 1.2);
+        addLog('survival-log', `[T+${tick}s] SPRINTING | Speed: 11.7 m/s | Stamina: ${state.stamina.toFixed(1)} | Hunger: ${state.hunger.toFixed(1)}`, 'info');
+        updateBars();
+        if (tick >= 3) {
+          clearInterval(interval);
+          gainXP(5);
+          toast('Sprint complete. Stamina depleted.', 'warning');
+        }
+      }, 400);
+    }
+
+    function doTakeHit() {
+      const damage = 45;
+      const mitigation = state.armor / (state.armor + 100);
+      const actual = damage * (1 - mitigation);
+      state.hp = Math.max(0, state.hp - actual);
+      addLog('survival-log', `ENEMY SNIPER fires! Armor mitigated ${(mitigation*100).toFixed(1)}%. Took ${actual.toFixed(1)} damage.`, 'damage');
+      updateBars();
+      toast(`Took ${actual.toFixed(1)} damage!`, 'danger');
+      document.getElementById('panel-survival').classList.add('glitch');
+      setTimeout(() => document.getElementById('panel-survival').classList.remove('glitch'), 300);
+      if (state.hp <= 0) {
+        addLog('survival-log', 'CRITICAL: Player down! Initiating emergency revival...', 'damage');
+        toast('CRITICAL: Player down!', 'danger');
+        setTimeout(() => {
+          state.hp = 30;
+          updateBars();
+          addLog('survival-log', 'Emergency revival successful. HP restored to 30.', 'heal');
+          toast('Emergency revival activated.', 'warning');
+        }, 1500);
+      }
+    }
+
+    function doHeal() {
+      if (state.inventory.medkit_military > 0) {
+        state.inventory.medkit_military--;
+        const healAmt = Math.min(50, state.maxHp - state.hp);
+        state.hp = Math.min(state.maxHp, state.hp + 50);
+        addLog('survival-log', `Used Military Medkit. Restored ${healAmt.toFixed(1)} HP. Medkits remaining: ${state.inventory.medkit_military}`, 'heal');
+        updateBars();
+        renderInventory();
+        toast(`Healed +${healAmt.toFixed(1)} HP`, 'success');
+      } else {
+        addLog('survival-log', 'No medkits available!', 'damage');
+        toast('No medkits in inventory!', 'danger');
+      }
+    }
+
+    function doRest() {
+      addLog('survival-log', 'Resting at camp...', 'action');
+      let tick = 0;
+      const interval = setInterval(() => {
+        tick++;
+        state.stamina = Math.min(state.maxStamina, state.stamina + 15);
+        state.hp = Math.min(state.maxHp, state.hp + 5);
+        state.hunger = Math.max(0, state.hunger - 2);
+        state.hydration = Math.max(0, state.hydration - 1.5);
+        addLog('survival-log', `[Rest T+${tick}] HP: ${state.hp.toFixed(1)} | Stamina: ${state.stamina.toFixed(1)}`, 'heal');
+        updateBars();
+        if (tick >= 4) {
+          clearInterval(interval);
+          toast('Rest complete. Stamina recovered.', 'success');
+        }
+      }, 500);
+    }
+
+    /* ============================
+       COMBAT SYSTEM
+    ============================ */
+    let selectedWeapon = 0;
+
+    function initWeaponTable() {
+      const tbody = document.getElementById('weapon-tbody');
+      tbody.innerHTML = '';
+      weapons.forEach((w, i) => {
+        const tr = document.createElement('tr');
+        tr.className = i === 0 ? 'selected' : '';
+        tr.onclick = () => {
+          selectedWeapon = i;
+          tbody.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+          tr.classList.add('selected');
+        };
+        tr.innerHTML = `
+          <td class="weapon-name">${w.icon} ${w.name}</td>
+          <td class="dmg-val">${w.dmg}</td>
+          <td>${w.range}m</td>
+          <td class="pen-val">${(w.pen * 100).toFixed(0)}%</td>
+          <td>${w.rpm}</td>
+          <td style="color:var(--text-dim)">${w.type}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById('combat-dist').oninput = (e) => {
+        document.getElementById('combat-dist-val').textContent = e.target.value + 'm';
+      };
+      document.getElementById('combat-armor').oninput = (e) => {
+        document.getElementById('combat-armor-val').textContent = e.target.value;
+      };
+    }
+
+    function runEngagement() {
+      const dist = parseInt(document.getElementById('combat-dist').value);
+      const armor = parseInt(document.getElementById('combat-armor').value);
+      const log = document.getElementById('combat-log');
+
+      addLog('combat-log', `ENGAGEMENT: Target at ${dist}m | Armor: ${armor}`, 'system');
+      addLog('combat-log', '─'.repeat(50), 'info');
+
+      weapons.forEach((w, i) => {
+        setTimeout(() => {
+          const falloff = dist <= w.range * 0.6 ? 1.0 : Math.max(0.2, 1.0 - ((dist - w.range*0.6) / (w.range*0.4)));
+          const effArmor = Math.max(0, armor * (1 - w.pen));
+          const mitigation = effArmor / (effArmor + 100);
+          const torsoDmg = w.dmg * falloff * (1 - mitigation);
+          const headDmg = torsoDmg * 2.5;
+          const effective = dist <= w.range ? '✓' : '✗';
+
+          addLog('combat-log', `${w.icon} ${w.name} → Torso: ${torsoDmg.toFixed(1)} | Head(2.5x): ${headDmg.toFixed(1)} | Falloff: ${(falloff*100).toFixed(0)}% | ${effective} Range`, torsoDmg > 30 ? 'damage' : 'info');
+        }, i * 200);
+      });
+
+      gainXP(10);
+    }
+
+    /* ============================
+       SQUAD AI
+    ============================ */
+    function initSquadGrid() {
+      renderSquad();
+    }
+
+    function renderSquad() {
+      const grid = document.getElementById('squad-grid');
+      grid.innerHTML = '';
+      state.squad.forEach((m, i) => {
+        const stateClass = m.state === 'IDLE' ? 'idle' : m.state === 'PATROL' ? 'patrol' :
+          m.state === 'ATTACK' ? 'attack' : m.state === 'OVERWATCH' ? 'overwatch' :
+          m.state === 'FLANK' ? 'flank' : 'cover';
+        const div = document.createElement('div');
+        div.className = 'squad-member fade-in';
+        div.innerHTML = `
+          <div class="role ${m.role.toLowerCase()}">${m.role.toUpperCase()}</div>
+          <div class="state-badge ${stateClass}">${m.state}</div>
+          <div class="order">Order: ${m.order}</div>
+          <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-dim);margin-top:0.3rem">
+            POS: (${m.x}, ${m.y})
+          </div>
+        `;
+        grid.appendChild(div);
+      });
+    }
+
+    function squadOrder(order) {
+      const orders = {
+        hold: { states: ['IDLE','IDLE','IDLE','OVERWATCH'], orders: ['HOLD','HOLD','HOLD','HOLD'], label: 'Hold Position' },
+        attack: {
+          states: ['ATTACK','FLANK','ATTACK','OVERWATCH'],
+          orders: ['COORDINATE','FLANK_LEFT','PUSH_CENTER','SNIPER_OVERWATCH'],
+          label: 'Full Assault'
+        },
+        flank: {
+          states: ['ATTACK','FLANK','FLANK','OVERWATCH'],
+          orders: ['COORDINATE','FLANK_LEFT','FLANK_RIGHT','OVERWATCH_COVER'],
+          label: 'Flank Maneuver'
+        },
+        retreat: {
+          states: ['IDLE','IDLE','IDLE','IDLE'],
+          orders: ['FALLBACK','FALLBACK','FALLBACK','COVER_RETREAT'],
+          label: 'Tactical Retreat'
+        },
+      };
+      const o = orders[order];
+      state.squad.forEach((m, i) => {
+        m.state = o.states[i];
+        m.order = o.orders[i];
+        // Move positions with some randomness
+        if (order === 'attack') {
+          m.x = Math.min(450, m.x + Math.random() * 40);
+          m.y = state.player.y + (Math.random() - 0.5) * 80;
+        } else if (order === 'retreat') {
+          m.x = Math.max(50, m.x - Math.random() * 60);
+        } else if (order === 'flank') {
+          m.x = Math.min(450, m.x + Math.random() * 20);
+          m.y = i < 2 ? Math.max(30, m.y - 50) : Math.min(470, m.y + 50);
+        }
+      });
+      renderSquad();
+      drawMinimap();
+      toast(`Order issued: ${o.label}`, 'info');
+    }
+
+    /* ============================
+       MINIMAP
+    ============================ */
+    function drawMinimap() {
+      const canvas = document.getElementById('minimap-canvas');
+      if (!canvas) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.width; // square
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+
+      // Background grid
+      ctx.fillStyle = 'rgba(6,9,15,0.9)';
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = 'rgba(0,229,255,0.06)';
+      ctx.lineWidth = 0.5;
+      const step = w / 20;
+      for (let i = 0; i <= 20; i++) {
+        ctx.beginPath(); ctx.moveTo(i*step, 0); ctx.lineTo(i*step, h); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, i*step); ctx.lineTo(w, i*step); ctx.stroke();
+      }
+
+      // Scale factor
+      const sx = w / 500, sy = h / 500;
+
+      // Draw zones
+      ctx.fillStyle = 'rgba(255,61,90,0.06)';
+      ctx.fillRect(100*sx, 50*sy, 200*sx, 150*sy);
+      ctx.strokeStyle = 'rgba(255,61,90,0.15)';
+      ctx.strokeRect(100*sx, 50*sy, 200*sx, 150*sy);
+      ctx.fillStyle = 'rgba(255,61,90,0.4)';
+      ctx.font = `${10*sx}px 'Share Tech Mono'`;
+      ctx.fillText('DANGER ZONE', 140*sx, 130*sy);
+
+      ctx.fillStyle = 'rgba(57,255,133,0.06)';
+      ctx.fillRect(20*sx, 350*sy, 120*sx, 100*sy);
+      ctx.strokeStyle = 'rgba(57,255,133,0.15)';
+      ctx.strokeRect(20*sx, 350*sy, 120*sx, 100*sy);
+      ctx.fillStyle = 'rgba(57,255,133,0.4)';
+      ctx.fillText('SAFEHOUSE', 35*sx, 405*sy);
+
+      // Draw squad members
+      state.squad.forEach(m => {
+        ctx.beginPath();
+        ctx.arc(m.x*sx, m.y*sy, 6*sx, 0, Math.PI*2);
+        ctx.fillStyle = m.color + '40';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(m.x*sx, m.y*sy, 3*sx, 0, Math.PI*2);
+        ctx.fillStyle = m.color;
+        ctx.fill();
+        ctx.fillStyle = m.color;
+        ctx.font = `${8*sx}px 'Share Tech Mono'`;
+        ctx.fillText(m.role[0], (m.x-3)*sx, (m.y+15)*sy);
+      });
+
+      // Draw player
+      const px = state.player.x * sx, py = state.player.y * sy;
+      ctx.beginPath();
+      ctx.arc(px, py, 7*sx, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(0,229,255,0.2)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(px, py, 4*sx, 0, Math.PI*2);
+      ctx.fillStyle = '#00e5ff';
+      ctx.fill();
+      ctx.fillStyle = '#00e5ff';
+      ctx.font = `bold ${9*sx}px 'Share Tech Mono'`;
+      ctx.fillText('YOU', (state.player.x-8)*sx, (state.player.y+18)*sy);
+
+      // Compass
+      ctx.fillStyle = 'rgba(0,229,255,0.5)';
+      ctx.font = `${10*sx}px 'Share Tech Mono'`;
+      ctx.fillText('N', (w/2-4), 14*sy);
+      ctx.fillText('S', (w/2-4), (h-6));
+      ctx.fillText('W', 4, h/2+4);
+      ctx.fillText('E', w-14, h/2+4);
+    }
+
+    /* ============================
+       DIALOGUE SYSTEM
+    ============================ */
+    function renderDialogue() {
+      const container = document.getElementById('dialogue-container');
+      if (state.dialogueNode < 0 || state.dialogueNode >= dialogueTree.length) {
+        container.innerHTML = `
+          <div class="card fade-in">
+            <div class="card-title">Conversation Complete</div>
+            <p style="color:var(--text-dim);font-size:0.92rem;margin-bottom:1rem">The conversation with Caleb has ended.</p>
+            <button class="btn" onclick="state.dialogueNode=0;renderDialogue();">Restart Conversation</button>
+          </div>
+        `;
+        return;
+      }
+      const node = dialogueTree[state.dialogueNode];
+      let html = `
+        <div class="dialogue-box fade-in">
+          <div class="dialogue-speaker">${node.speaker} <span style="color:var(--text-dim);font-size:0.62rem;margin-left:0.5rem">${node.location}</span></div>
+          <div class="dialogue-text">"${node.text}"</div>
+        </div>
+        <div class="dialogue-choices fade-in">
+      `;
+      node.choices.forEach((c, i) => {
+        html += `
+          <button class="dialogue-choice" onclick="selectChoice(${i})">
+            <span class="choice-num">${i+1}.</span>
+            ${c.text}
+            <span class="choice-tag ${c.tagClass}">${c.tag}</span>
+          </button>
+        `;
+      });
+      html += '</div><div id="dialogue-result"></div>';
+      container.innerHTML = html;
+    }
+
+    function selectChoice(idx) {
+      const node = dialogueTree[state.dialogueNode];
+      const choice = node.choices[idx];
+      const resultEl = document.getElementById('dialogue-result');
+      let resultHtml = '';
+
+      if (choice.rep && choice.rep.amount !== 0) {
+        const positive = choice.rep.amount > 0;
+        resultHtml += `<div class="reputation-change ${positive ? 'positive' : 'negative'}">
+          ${positive ? '▲' : '▼'} ${choice.rep.faction}: ${positive ? '+' : ''}${choice.rep.amount} Reputation
+        </div>`;
+        toast(`${choice.rep.faction}: ${choice.rep.amount > 0 ? '+' : ''}${choice.rep.amount} Rep`, choice.rep.amount > 0 ? 'success' : 'danger');
+      }
+      if (choice.credits) {
+        state.credits += choice.credits;
+        resultHtml += `<div class="reputation-change positive">+ ${choice.credits} Credits</div>`;
+        toast(`+${choice.credits} Credits`, 'success');
+        updateBars();
+      }
+      if (choice.xp) {
+        gainXP(choice.xp);
+        resultHtml += `<div class="reputation-change positive">+ ${choice.xp} XP</div>`;
+      }
+
+      resultEl.innerHTML = resultHtml;
+
+      setTimeout(() => {
+        state.dialogueNode = choice.next;
+        renderDialogue();
+      }, 1500);
+    }
+
+    /* ============================
+       CRAFTING SYSTEM
+    ============================ */
+    function renderRecipes() {
+      const list = document.getElementById('recipe-list');
+      list.innerHTML = '';
+      recipes.forEach(r => {
+        const canCraft = Object.entries(r.mats).every(([k, v]) => (state.inventory[k] || 0) >= v);
+        const matsHtml = Object.entries(r.mats).map(([k, v]) => {
+          const have = state.inventory[k] || 0;
+          const cls = have >= v ? 'available' : 'unavailable';
+          return `<span class="${cls}">${formatItemName(k)} (${have}/${v})</span>`;
+        }).join(' + ');
+
+        const div = document.createElement('div');
+        div.className = 'recipe-card';
+        div.innerHTML = `
+          <div class="recipe-icon">${r.icon}</div>
+          <div class="recipe-info">
+            <div class="recipe-name">${r.name} ×${r.output}</div>
+            <div class="recipe-mats">${matsHtml}</div>
+          </div>
+          <button class="craft-btn" ${canCraft ? '' : 'disabled'} onclick="craftItem('${r.id}')">CRAFT</button>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    function craftItem(id) {
+      const recipe = recipes.find(r => r.id === id);
+      if (!recipe) return;
+      const canCraft = Object.entries(recipe.mats).every(([k, v]) => (state.inventory[k] || 0) >= v);
+      if (!canCraft) return;
+
+      Object.entries(recipe.mats).forEach(([k, v]) => { state.inventory[k] -= v; });
+      state.inventory[id] = (state.inventory[id] || 0) + recipe.output;
+
+      renderRecipes();
+      renderInventory();
+      gainXP(15);
+      toast(`Crafted ${recipe.name} ×${recipe.output}`, 'success');
+    }
+
+    function formatItemName(key) {
+      return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function renderInventory() {
+      const grid = document.getElementById('inventory-grid');
+      grid.innerHTML = '';
+      const icons = {
+        scrap_metal: '🔩', electronics: '💡', bandage_cloth: '🩹', antiseptic: '🧴',
+        gunpowder: '💣', lead_ingot: '🧱', weapon_parts: '🔧', medkit_military: '💊',
+        ammo_556_ap: '🔸'
+      };
+      Object.entries(state.inventory).forEach(([k, v]) => {
+        if (v <= 0) return;
+        const div = document.createElement('div');
+        div.className = 'inv-slot';
+        div.innerHTML = `
+          <div class="inv-icon">${icons[k] || '📦'}</div>
+          <div class="inv-name">${formatItemName(k)}</div>
+          <div class="inv-qty">×${v}</div>
+        `;
+        grid.appendChild(div);
+      });
+    }
+
+    /* ============================
+       SAVE SYSTEM
+    ============================ */
+    function generateSave() {
+      const snapshot = {
+        slot_index: 1,
+        save_name: "Bunker Safehouse",
+        game_version: "1.0.0",
+        timestamp: new Date().toISOString(),
+        player: {
+          health: parseFloat(state.hp.toFixed(1)),
+          max_health: state.maxHp,
+          stamina: parseFloat(state.stamina.toFixed(1)),
+          hunger: parseFloat(state.hunger.toFixed(1)),
+          hydration: parseFloat(state.hydration.toFixed(1)),
+          level: state.level,
+          xp: state.xp,
+          xp_next: state.xpNext,
+          credits: state.credits,
+          armor: state.armor,
+          region: state.region,
+          position: { x: 145.2, y: 0.0, z: 412.8 }
+        },
+        inventory: Object.entries(state.inventory)
+          .filter(([k, v]) => v > 0)
+          .map(([k, v]) => ({ item_id: k, qty: v })),
+        squad: state.squad.map(m => ({ role: m.role, state: m.state, order: m.order })),
+        missions: [
+          { id: "mq_01_blackout_origin", status: state.dialogueNode < 0 ? "Completed" : "In Progress" }
+        ]
+      };
+
+      const json = JSON.stringify(snapshot, null, 2);
+      document.getElementById('save-json').textContent = json;
+
+      // Store in localStorage
+      localStorage.setItem('shadow_protocol_save', json);
+      toast('Save snapshot generated & stored.', 'success');
+    }
+
+    function loadSave() {
+      const raw = localStorage.getItem('shadow_protocol_save');
+      if (!raw) {
+        toast('No save data found!', 'danger');
+        return;
+      }
+      try {
+        const data = JSON.parse(raw);
+        state.hp = data.player.health;
+        state.maxHp = data.player.max_health || 100;
+        state.stamina = data.player.stamina;
+        state.hunger = data.player.hunger;
+        state.hydration = data.player.hydration;
+        state.level = data.player.level;
+        state.xp = data.player.xp;
+        state.xpNext = data.player.xp_next || 100;
+        state.credits = data.player.credits;
+        state.armor = data.player.armor || 50;
+
+        const inv = {};
+        data.inventory.forEach(i => { inv[i.item_id] = i.qty; });
+        state.inventory = inv;
+
+        updateBars();
+        renderInventory();
+        renderRecipes();
+        document.getElementById('save-json').textContent = raw;
+        toast('Save loaded successfully!', 'success');
+      } catch (e) {
+        toast('Error loading save data.', 'danger');
+      }
+    }
+  </script>
+</body>
+</html>
