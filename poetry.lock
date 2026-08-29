@@ -1,0 +1,54 @@
+# This file is automatically `@generated` by Poetry 1.8.2 and should be preserved.
+
+[[package]]
+name = "fastapi"
+version = "0.110.0"
+description = "FastAPI framework, high performance, easy to learn, fast to code, ready for production"
+optional = false
+python-versions = ">=3.8"
+files = []
+
+[[package]]
+name = "uvicorn"
+version = "0.28.0"
+description = "The lightning-fast ASGI server."
+optional = false
+python-versions = ">=3.8"
+files = []
+
+[[package]]
+name = "pydantic"
+version = "2.6.4"
+description = "Data validation using Python type hints"
+optional = false
+python-versions = ">=3.8"
+files = []
+
+[[package]]
+name = "sqlalchemy"
+version = "2.0.28"
+description = "Database Abstraction Library"
+optional = false
+python-versions = ">=3.7"
+files = []
+
+[[package]]
+name = "pytest"
+version = "8.1.1"
+description = "pytest: simple powerful testing with Python"
+optional = false
+python-versions = ">=3.8"
+files = []
+
+[[package]]
+name = "pytest-cov"
+version = "4.1.0"
+description = "Pytest plugin for measuring coverage."
+optional = false
+python-versions = ">=3.7"
+files = []
+
+[metadata]
+lock-version = "2.0"
+python-versions = ">=3.12,<4.0"
+content-hash = "a7d9037c223c7dbba6512b9d29e71cb61d9047913374826d70bcbe1e6e00ab52"
