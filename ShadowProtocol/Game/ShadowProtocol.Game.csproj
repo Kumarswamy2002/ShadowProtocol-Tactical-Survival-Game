@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>ShadowProtocol.Game</RootNamespace>
+    <AssemblyName>ShadowProtocol.Game</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Core\ShadowProtocol.Core.csproj" />
+  </ItemGroup>
+</Project>
