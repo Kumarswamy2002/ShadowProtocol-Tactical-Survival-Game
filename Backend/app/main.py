@@ -24,7 +24,7 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Enable CORS for Unity clients and web dashboards
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -41,493 +41,949 @@ app.include_router(save_router, prefix=settings.API_V1_STR)
 app.include_router(leaderboard_router, prefix=settings.API_V1_STR)
 
 
-@app.get("/", response_class=HTMLResponse, tags=["Dashboard"])
-async def dashboard():
-    return """
-<!DOCTYPE html>
+@app.get("/play", response_class=HTMLResponse, tags=["Playable Game"])
+@app.get("/", response_class=HTMLResponse, tags=["Playable Game"])
+async def play_game():
+    return """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SHADOW PROTOCOL | Tactical Command Center</title>
+    <title>SHADOW PROTOCOL | Playable Tactical Survival Game</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #0a0d14;
-            --bg-card: rgba(16, 22, 34, 0.75);
-            --bg-card-hover: rgba(24, 33, 52, 0.9);
-            --border-glow: rgba(0, 240, 255, 0.25);
-            --border-active: #00f0ff;
+            --bg-dark: #07090e;
+            --panel-bg: rgba(13, 18, 28, 0.85);
+            --panel-border: rgba(0, 240, 255, 0.2);
             --accent-cyan: #00f0ff;
             --accent-emerald: #00ffaa;
             --accent-crimson: #ff0055;
             --accent-amber: #ffaa00;
             --text-primary: #f0f4fc;
             --text-secondary: #8a9bb8;
-            --text-muted: #53627c;
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            user-select: none;
         }
 
         body {
-            background-color: var(--bg-primary);
-            background-image: 
-                radial-gradient(circle at 15% 15%, rgba(0, 240, 255, 0.08) 0%, transparent 40%),
-                radial-gradient(circle at 85% 85%, rgba(255, 0, 85, 0.06) 0%, transparent 45%),
-                linear-gradient(rgba(10, 13, 20, 0.85) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(10, 13, 20, 0.85) 1px, transparent 1px);
-            background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+            background-color: var(--bg-dark);
             color: var(--text-primary);
             font-family: 'Outfit', sans-serif;
-            min-height: 100vh;
+            overflow: hidden;
             display: flex;
             flex-direction: column;
-            overflow-x: hidden;
+            height: 100vh;
         }
 
-        /* Glassmorphism Header */
+        /* Top Nav */
         header {
-            background: rgba(10, 13, 20, 0.85);
-            backdrop-filter: blur(16px);
-            border-bottom: 1px solid rgba(0, 240, 255, 0.15);
-            padding: 18px 40px;
+            background: rgba(10, 13, 20, 0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--panel-border);
+            padding: 10px 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
+            z-index: 50;
         }
 
-        .logo-group {
+        .brand {
             display: flex;
             align-items: center;
-            gap: 14px;
+            gap: 12px;
         }
 
-        .logo-badge {
+        .badge {
             background: linear-gradient(135deg, var(--accent-cyan), #0077ff);
             color: #000;
             font-weight: 900;
-            font-size: 16px;
-            padding: 6px 12px;
-            border-radius: 6px;
-            letter-spacing: 1.5px;
-            box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+            font-size: 13px;
+            padding: 4px 10px;
+            border-radius: 4px;
+            letter-spacing: 1px;
         }
 
-        .logo-title {
-            font-size: 22px;
+        .title {
+            font-size: 18px;
             font-weight: 800;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            background: linear-gradient(90deg, #fff, var(--text-secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .status-pill {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(0, 255, 170, 0.1);
-            border: 1px solid rgba(0, 255, 170, 0.3);
-            color: var(--accent-emerald);
-            padding: 6px 16px;
-            border-radius: 20px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
-            font-weight: 600;
-        }
-
-        .pulse-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--accent-emerald);
-            box-shadow: 0 0 10px var(--accent-emerald);
-            animation: pulse 1.8s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.4; transform: scale(0.85); }
-        }
-
-        /* Container */
-        .container {
-            max-width: 1300px;
-            margin: 0 auto;
-            padding: 40px 24px;
-            flex: 1;
-            width: 100%;
-        }
-
-        /* Hero Banner */
-        .hero {
-            background: linear-gradient(135deg, rgba(16, 25, 42, 0.8), rgba(12, 17, 28, 0.9));
-            border: 1px solid var(--border-glow);
-            border-radius: 16px;
-            padding: 40px;
-            margin-bottom: 36px;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-        }
-
-        .hero::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 4px;
-            height: 100%;
-            background: linear-gradient(to bottom, var(--accent-cyan), var(--accent-emerald));
-        }
-
-        .hero-tag {
-            color: var(--accent-cyan);
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
             letter-spacing: 2px;
             text-transform: uppercase;
-            margin-bottom: 12px;
         }
 
-        .hero h1 {
-            font-size: 38px;
-            font-weight: 900;
-            letter-spacing: -0.5px;
-            margin-bottom: 12px;
-            line-height: 1.2;
-        }
-
-        .hero p {
-            color: var(--text-secondary);
-            font-size: 16px;
-            max-width: 780px;
-            line-height: 1.6;
-            margin-bottom: 24px;
-        }
-
-        .btn-group {
+        .top-stats {
             display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
+            gap: 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
         }
 
-        .btn {
-            display: inline-flex;
+        .stat-item {
+            display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            text-decoration: none;
-            cursor: pointer;
-            transition: all 0.25s ease;
-            font-family: 'Outfit', sans-serif;
-            border: none;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--accent-cyan), #0088ff);
-            color: #050811;
-            box-shadow: 0 0 25px rgba(0, 240, 255, 0.35);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 0 35px rgba(0, 240, 255, 0.6);
-        }
-
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.05);
-            color: var(--text-primary);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.1);
-            border-color: var(--accent-cyan);
-            transform: translateY(-2px);
-        }
-
-        /* Grid Cards */
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-            gap: 24px;
-            margin-bottom: 36px;
-        }
-
-        .card {
-            background: var(--bg-card);
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.04);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(12px);
-            border-radius: 14px;
-            padding: 28px;
-            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+            padding: 4px 12px;
+            border-radius: 6px;
+        }
+
+        /* Game Layout */
+        #game-container {
             position: relative;
-        }
-
-        .card:hover {
-            background: var(--bg-card-hover);
-            border-color: var(--border-glow);
-            transform: translateY(-4px);
-            box-shadow: 0 12px 30px rgba(0, 240, 255, 0.1);
-        }
-
-        .card-header {
+            flex: 1;
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
             align-items: center;
-            margin-bottom: 16px;
+            background: #050608;
+            overflow: hidden;
         }
 
-        .card-title {
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--text-primary);
+        canvas {
+            display: block;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+            cursor: crosshair;
         }
 
-        .card-icon {
-            font-size: 22px;
-            color: var(--accent-cyan);
+        /* HUD Overlays */
+        .hud-overlay {
+            position: absolute;
+            pointer-events: none;
+            z-index: 10;
         }
 
-        .card-desc {
-            color: var(--text-secondary);
-            font-size: 14px;
-            line-height: 1.6;
-            margin-bottom: 20px;
-        }
-
-        .endpoint-list {
-            list-style: none;
+        #hud-vitals {
+            bottom: 20px;
+            left: 20px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            padding: 14px 18px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            min-width: 220px;
         }
 
-        .endpoint-item {
+        .bar-group {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            padding: 10px 14px;
-            border-radius: 6px;
+            flex-direction: column;
+            gap: 3px;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 12px;
-        }
-
-        .method {
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-weight: 700;
             font-size: 11px;
         }
 
-        .get { background: rgba(0, 255, 170, 0.15); color: var(--accent-emerald); }
-        .post { background: rgba(0, 240, 255, 0.15); color: var(--accent-cyan); }
-        .put { background: rgba(255, 170, 0, 0.15); color: var(--accent-amber); }
-
-        /* Interactive Console Tester */
-        .tester-card {
-            background: rgba(12, 16, 26, 0.95);
-            border: 1px solid var(--border-glow);
-            border-radius: 14px;
-            padding: 28px;
-            margin-bottom: 36px;
-        }
-
-        .tester-header {
+        .bar-label {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
+            color: var(--text-secondary);
         }
 
-        .terminal-output {
-            background: #05070c;
-            border: 1px solid rgba(0, 240, 255, 0.15);
+        .bar-container {
+            width: 100%;
+            height: 7px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            width: 100%;
+            border-radius: 4px;
+            transition: width 0.15s ease-out;
+        }
+
+        .bar-hp { background: linear-gradient(90deg, #ff0055, #ff5577); }
+        .bar-stm { background: linear-gradient(90deg, #00f0ff, #00aaff); }
+        .bar-arm { background: linear-gradient(90deg, #ffaa00, #ffdd55); }
+
+        #hud-weapons {
+            bottom: 20px;
+            right: 20px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            padding: 14px 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        #weapon-name {
+            color: var(--accent-cyan);
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        #ammo-count {
+            font-size: 24px;
+            font-weight: 900;
+            color: #fff;
+        }
+
+        #hud-objective {
+            top: 20px;
+            left: 20px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            padding: 12px 18px;
             border-radius: 8px;
-            padding: 18px;
+            backdrop-filter: blur(10px);
+            font-size: 13px;
+        }
+
+        .obj-tag {
+            color: var(--accent-amber);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+        }
+
+        /* Controls Floating Panel */
+        #hud-controls {
+            top: 20px;
+            right: 20px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            padding: 12px 16px;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text-secondary);
+            pointer-events: auto;
+        }
+
+        .btn-autoplay {
+            margin-top: 8px;
+            width: 100%;
+            background: linear-gradient(135deg, var(--accent-cyan), #0088ff);
+            border: none;
+            color: #000;
+            font-weight: 800;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'Outfit', sans-serif;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+            transition: transform 0.15s ease;
+        }
+
+        .btn-autoplay:hover {
+            transform: scale(1.03);
+        }
+
+        .btn-autoplay.active {
+            background: linear-gradient(135deg, var(--accent-emerald), #00aa66);
+            color: #fff;
+        }
+
+        /* Event Toast */
+        #event-toast {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 240, 255, 0.15);
+            border: 1px solid var(--accent-cyan);
+            color: #fff;
+            padding: 8px 24px;
+            border-radius: 20px;
             font-family: 'JetBrains Mono', monospace;
             font-size: 13px;
-            color: var(--accent-emerald);
-            min-height: 140px;
-            max-height: 260px;
-            overflow-y: auto;
-            line-height: 1.6;
-            white-space: pre-wrap;
-        }
-
-        footer {
-            border-top: 1px solid rgba(255, 255, 255, 0.06);
-            padding: 24px;
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 13px;
-            background: rgba(10, 13, 20, 0.9);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            z-index: 100;
         }
     </style>
 </head>
 <body>
 
     <header>
-        <div class="logo-group">
-            <span class="logo-badge">SP-V1</span>
-            <span class="logo-title">Shadow Protocol</span>
+        <div class="brand">
+            <span class="badge">TACTICAL</span>
+            <span class="title">Shadow Protocol // Live Simulator</span>
         </div>
-        <div class="status-pill">
-            <span class="pulse-dot"></span>
-            SYSTEM ONLINE & OPERATIONAL
+        <div class="top-stats">
+            <div class="stat-item"><span style="color:var(--accent-amber);">SCORE:</span> <span id="score-display">0</span></div>
+            <div class="stat-item"><span style="color:var(--accent-cyan);">CREDITS:</span> <span id="credits-display">500</span></div>
+            <div class="stat-item"><span style="color:var(--accent-emerald);">LEVEL:</span> <span id="level-display">1</span></div>
+            <div class="stat-item"><span style="color:var(--accent-crimson);">KILLS:</span> <span id="kills-display">0</span></div>
         </div>
     </header>
 
-    <div class="container">
-        <!-- Hero Section -->
-        <section class="hero">
-            <div class="hero-tag">// VEYRA TACTICAL COMMAND NODE</div>
-            <h1>Shadow Protocol Backend Microservice</h1>
-            <p>
-                Real-time persistent services for the open-world tactical survival game. Featuring decoupled clean architecture, JWT authentication, asynchronous database persistence, cloud game state snapshotting, inventory synchronization, and competitive leaderboards.
-            </p>
-            <div class="btn-group">
-                <a href="/docs" target="_blank" class="btn btn-primary" id="btn-swagger">
-                    <span>⚡</span> Open Interactive Swagger UI
-                </a>
-                <a href="/redoc" target="_blank" class="btn btn-secondary" id="btn-redoc">
-                    <span>📄</span> View ReDoc Specification
-                </a>
-                <button onclick="pingHealth()" class="btn btn-secondary" id="btn-ping">
-                    <span>📡</span> Ping /health Status
-                </button>
-            </div>
-        </section>
+    <div id="game-container">
+        <canvas id="gameCanvas" width="1280" height="720"></canvas>
 
-        <!-- Live Terminal Inspector -->
-        <section class="tester-card">
-            <div class="tester-header">
-                <div>
-                    <h2 style="font-size: 20px; font-weight: 700;">Live Endpoint Inspector</h2>
-                    <p style="color: var(--text-secondary); font-size: 14px;">Real-time interactive query engine testing active database and memory subsystems.</p>
-                </div>
-                <div style="display: flex; gap: 10px;">
-                    <button onclick="pingHealth()" class="btn btn-secondary" style="padding: 8px 16px; font-size: 12px;">Ping Health</button>
-                    <button onclick="fetchLeaderboard()" class="btn btn-secondary" style="padding: 8px 16px; font-size: 12px;">Top Leaderboard</button>
-                </div>
-            </div>
-            <div class="terminal-output" id="terminal-log">Connecting to Shadow Protocol tactical network node...
-[READY] Host: 127.0.0.1:8000 | Status: Healthy | Database: Connected
-Click 'Ping Health' or 'Top Leaderboard' above to query live endpoints in real-time.</div>
-        </section>
+        <div id="event-toast">Mission Started: Infiltrate Sector 7</div>
 
-        <!-- Grid of Services -->
-        <div class="grid">
-            <!-- Auth Service -->
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Authentication & Identity</h3>
-                    <span class="card-icon">🔐</span>
-                </div>
-                <p class="card-desc">Operative registration and salted bcrypt credential hashing with JWT access tokens.</p>
-                <ul class="endpoint-list">
-                    <li class="endpoint-item"><span>/api/v1/auth/register</span><span class="method post">POST</span></li>
-                    <li class="endpoint-item"><span>/api/v1/auth/login</span><span class="method post">POST</span></li>
-                </ul>
-            </div>
+        <!-- HUD: Objective -->
+        <div class="hud-overlay" id="hud-objective">
+            <div class="obj-tag">CURRENT OBJECTIVE</div>
+            <div id="objective-text" style="font-weight: 700; color: #fff;">Infiltrate Sector 7 Bunker & Eliminate Directorate Sentinels</div>
+        </div>
 
-            <!-- Player Profile -->
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Player Profile & Vitals</h3>
-                    <span class="card-icon">🪖</span>
-                </div>
-                <p class="card-desc">Vitals synchronization (HP, Stamina, Armor, Hunger, Hydration) and GPS world coordinates.</p>
-                <ul class="endpoint-list">
-                    <li class="endpoint-item"><span>/api/v1/player/profile</span><span class="method get">GET</span></li>
-                    <li class="endpoint-item"><span>/api/v1/player/profile</span><span class="method put">PUT</span></li>
-                </ul>
-            </div>
+        <!-- HUD: Controls & Autoplay -->
+        <div class="hud-overlay" id="hud-controls">
+            <div><b style="color:#fff;">[W,A,S,D]</b> Move</div>
+            <div><b style="color:#fff;">[MOUSE]</b> Aim & Shoot</div>
+            <div><b style="color:#fff;">[SHIFT]</b> Sprint  <b style="color:#fff;">[C]</b> Crouch</div>
+            <div><b style="color:#fff;">[1,2,3,4]</b> Switch Weapon</div>
+            <div><b style="color:#fff;">[R]</b> Reload  <b style="color:#fff;">[E]</b> Interact/Loot</div>
+            <button class="btn-autoplay" id="btn-autopilot" onclick="toggleAutopilot()">🤖 WATCH AI PLAY (AUTOPILOT)</button>
+        </div>
 
-            <!-- Inventory & Cloud Save -->
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Cloud Inventory & Persistence</h3>
-                    <span class="card-icon">💾</span>
-                </div>
-                <p class="card-desc">Multi-slot delta game state snapshots, durability records, and cloud inventory transfer.</p>
-                <ul class="endpoint-list">
-                    <li class="endpoint-item"><span>/api/v1/inventory/sync</span><span class="method post">POST</span></li>
-                    <li class="endpoint-item"><span>/api/v1/save</span><span class="method post">POST</span></li>
-                    <li class="endpoint-item"><span>/api/v1/save/{slot_index}</span><span class="method get">GET</span></li>
-                </ul>
+        <!-- HUD: Vitals -->
+        <div class="hud-overlay" id="hud-vitals">
+            <div class="bar-group">
+                <div class="bar-label"><span>HEALTH</span><span id="hp-val">100</span></div>
+                <div class="bar-container"><div class="bar-fill bar-hp" id="bar-hp" style="width: 100%;"></div></div>
             </div>
+            <div class="bar-group">
+                <div class="bar-label"><span>STAMINA</span><span id="stm-val">100</span></div>
+                <div class="bar-container"><div class="bar-fill bar-stm" id="bar-stm" style="width: 100%;"></div></div>
+            </div>
+            <div class="bar-group">
+                <div class="bar-label"><span>ARMOR</span><span id="arm-val">50</span></div>
+                <div class="bar-container"><div class="bar-fill bar-arm" id="bar-arm" style="width: 50%;"></div></div>
+            </div>
+        </div>
 
-            <!-- Leaderboard -->
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Global Leaderboards</h3>
-                    <span class="card-icon">🏆</span>
-                </div>
-                <p class="card-desc">High-throughput ranking engine for survival metrics, mission completions, and operative score.</p>
-                <ul class="endpoint-list">
-                    <li class="endpoint-item"><span>/api/v1/leaderboard/submit</span><span class="method post">POST</span></li>
-                    <li class="endpoint-item"><span>/api/v1/leaderboard</span><span class="method get">GET</span></li>
-                </ul>
-            </div>
+        <!-- HUD: Weapons -->
+        <div class="hud-overlay" id="hud-weapons">
+            <div id="weapon-name">AR-556 Directorate Rifle</div>
+            <div id="ammo-count">30 / 120</div>
+            <div style="font-size: 11px; color: var(--text-secondary);">TACTICAL AUTO</div>
         </div>
     </div>
 
-    <footer>
-        &copy; 2026 SHADOW PROTOCOL &bull; Open-World Tactical Survival Game &bull; MIT License
-    </footer>
-
     <script>
-        const terminal = document.getElementById('terminal-log');
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
 
-        async function pingHealth() {
-            terminal.textContent = ">> GET /health ...\\n";
+        // Audio synthesizer
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(freq, type, duration, vol=0.1) {
             try {
-                const res = await fetch('/health');
-                const data = await res.json();
-                terminal.textContent += JSON.stringify(data, null, 2);
-            } catch (err) {
-                terminal.textContent += "[ERROR] " + err.message;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e){}
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('event-toast');
+            toast.textContent = msg;
+            toast.style.opacity = '1';
+            setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+        }
+
+        // Game State
+        const Game = {
+            width: 1280,
+            height: 720,
+            autopilot: false,
+            score: 0,
+            credits: 500,
+            level: 1,
+            kills: 0,
+            keys: {},
+            mouse: { x: 640, y: 360, down: false },
+            player: {
+                x: 200,
+                y: 360,
+                vx: 0,
+                vy: 0,
+                angle: 0,
+                health: 100,
+                maxHealth: 100,
+                stamina: 100,
+                armor: 50,
+                speed: 3.8,
+                isCrouching: false,
+                isSprinting: false,
+                currentWeaponIndex: 0,
+                weapons: [
+                    { name: "AR-556 Directorate Rifle", damage: 35, range: 450, fireRate: 110, ammo: 30, maxAmmo: 30, reserve: 120, reloadTime: 1400, reloading: false, lastShot: 0, soundFreq: 240 },
+                    { name: "Ghost-762 Sniper", damage: 120, range: 700, fireRate: 650, ammo: 5, maxAmmo: 5, reserve: 25, reloadTime: 2200, reloading: false, lastShot: 0, soundFreq: 140 },
+                    { name: "Spectre-45 SMG", damage: 22, range: 350, fireRate: 75, ammo: 30, maxAmmo: 30, reserve: 180, reloadTime: 1200, reloading: false, lastShot: 0, soundFreq: 320 },
+                    { name: "Breacher-12 Shotgun", damage: 85, range: 240, fireRate: 450, ammo: 8, maxAmmo: 8, reserve: 40, reloadTime: 1800, reloading: false, lastShot: 0, soundFreq: 180 }
+                ]
+            },
+            bullets: [],
+            enemies: [],
+            loot: [],
+            particles: [],
+            structures: [],
+            directorateBase: { x: 1050, y: 360, radius: 120 }
+        };
+
+        // Initialize Map Structures & Loot
+        function initMap() {
+            Game.structures = [
+                { x: 450, y: 150, w: 120, h: 200, label: "REFUELING STATION" },
+                { x: 450, y: 420, w: 120, h: 180, label: "STORAGE DEPOT" },
+                { x: 750, y: 220, w: 160, h: 280, label: "SECTOR 7 MAINFRAME" }
+            ];
+
+            // Spawn Initial Enemies
+            spawnEnemy(800, 180, "Scout");
+            spawnEnemy(820, 520, "Scout");
+            spawnEnemy(1050, 300, "Heavy");
+            spawnEnemy(1080, 420, "Commander");
+            spawnEnemy(650, 360, "Soldier");
+
+            // Spawn Initial Loot
+            spawnLoot(480, 220, "medkit");
+            spawnLoot(480, 480, "ammo");
+            spawnLoot(780, 360, "cipher");
+        }
+
+        function spawnEnemy(x, y, type) {
+            let hp = 60, speed = 2.4, color = "#ff4466", radius = 16;
+            if (type === "Scout") { hp = 45; speed = 3.2; color = "#ffaa00"; radius = 14; }
+            if (type === "Heavy") { hp = 160; speed = 1.4; color = "#ff0055"; radius = 22; }
+            if (type === "Commander") { hp = 110; speed = 2.0; color = "#cc00ff"; radius = 18; }
+
+            Game.enemies.push({
+                x, y, type, hp, maxHp: hp, speed, color, radius,
+                angle: Math.PI,
+                state: "PATROL",
+                patrolOrigin: { x, y },
+                alertness: 0,
+                lastShot: 0
+            });
+        }
+
+        function spawnLoot(x, y, type) {
+            Game.loot.push({ x, y, type, radius: 12, collected: false });
+        }
+
+        function createParticles(x, y, color, count=8) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const spd = Math.random() * 4 + 1;
+                Game.particles.push({
+                    x, y,
+                    vx: Math.cos(angle) * spd,
+                    vy: Math.sin(angle) * spd,
+                    color,
+                    life: 1.0,
+                    decay: Math.random() * 0.04 + 0.02
+                });
             }
         }
 
-        async function fetchLeaderboard() {
-            terminal.textContent = ">> GET /api/v1/leaderboard ...\\n";
-            try {
-                const res = await fetch('/api/v1/leaderboard');
-                const data = await res.json();
-                terminal.textContent += JSON.stringify(data, null, 2);
-            } catch (err) {
-                terminal.textContent += "[ERROR] " + err.message;
+        // Input Listeners
+        window.addEventListener('keydown', (e) => {
+            Game.keys[e.key.toLowerCase()] = true;
+            if (e.key >= '1' && e.key <= '4') {
+                Game.player.currentWeaponIndex = parseInt(e.key) - 1;
+                updateHUD();
+                playSound(400, 'sine', 0.08);
             }
+            if (e.key.toLowerCase() === 'r') {
+                reloadCurrentWeapon();
+            }
+        });
+        window.addEventListener('keyup', (e) => { Game.keys[e.key.toLowerCase()] = false; });
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            Game.mouse.x = (e.clientX - rect.left) * (Game.width / rect.width);
+            Game.mouse.y = (e.clientY - rect.top) * (Game.height / rect.height);
+        });
+        canvas.addEventListener('mousedown', () => { Game.mouse.down = true; });
+        canvas.addEventListener('mouseup', () => { Game.mouse.down = false; });
+
+        function toggleAutopilot() {
+            Game.autopilot = !Game.autopilot;
+            const btn = document.getElementById('btn-autopilot');
+            btn.classList.toggle('active', Game.autopilot);
+            btn.textContent = Game.autopilot ? "🟢 AUTOPILOT ACTIVE (CLICK TO TAKE CONTROL)" : "🤖 WATCH AI PLAY (AUTOPILOT)";
+            showToast(Game.autopilot ? "AI Autopilot Activated: Operative in autonomous mode" : "Manual Control Returned to Player");
         }
+
+        function reloadCurrentWeapon() {
+            const w = Game.player.weapons[Game.player.currentWeaponIndex];
+            if (w.reloading || w.ammo >= w.maxAmmo || w.reserve <= 0) return;
+            w.reloading = true;
+            playSound(300, 'triangle', 0.2);
+            showToast(`Reloading ${w.name}...`);
+            setTimeout(() => {
+                const needed = w.maxAmmo - w.ammo;
+                const toAdd = Math.min(needed, w.reserve);
+                w.ammo += toAdd;
+                w.reserve -= toAdd;
+                w.reloading = false;
+                updateHUD();
+                playSound(600, 'triangle', 0.15);
+            }, w.reloadTime);
+        }
+
+        function shootWeapon(x, y, angle, isPlayer = true, dmg = 35) {
+            const w = isPlayer ? Game.player.weapons[Game.player.currentWeaponIndex] : null;
+            if (isPlayer) {
+                if (w.reloading || w.ammo <= 0) {
+                    if (w.ammo <= 0) reloadCurrentWeapon();
+                    return;
+                }
+                w.ammo--;
+                playSound(w.soundFreq, 'square', 0.08, 0.15);
+            } else {
+                playSound(180, 'sawtooth', 0.06, 0.08);
+            }
+
+            const spread = (Math.random() - 0.5) * 0.08;
+            const finalAngle = angle + spread;
+            Game.bullets.push({
+                x, y,
+                vx: Math.cos(finalAngle) * 14,
+                vy: Math.sin(finalAngle) * 14,
+                isPlayer,
+                damage: dmg,
+                distance: 0,
+                maxDistance: isPlayer ? w.range : 400
+            });
+            updateHUD();
+        }
+
+        // Main Game Loop
+        function update(deltaTime) {
+            const p = Game.player;
+
+            // Autopilot AI Behavior
+            if (Game.autopilot) {
+                let nearestEnemy = null, minDist = 9999;
+                for (const e of Game.enemies) {
+                    const d = Math.hypot(e.x - p.x, e.y - p.y);
+                    if (d < minDist) { minDist = d; nearestEnemy = e; }
+                }
+
+                let nearestLoot = null, minLootDist = 9999;
+                for (const l of Game.loot) {
+                    if (!l.collected) {
+                        const d = Math.hypot(l.x - p.x, l.y - p.y);
+                        if (d < minLootDist) { minLootDist = d; nearestLoot = l; }
+                    }
+                }
+
+                if (nearestEnemy && minDist < 450) {
+                    p.angle = Math.atan2(nearestEnemy.y - p.y, nearestEnemy.x - p.x);
+                    // Maintain tactical distance
+                    if (minDist < 200) {
+                        p.vx = -Math.cos(p.angle) * p.speed;
+                        p.vy = -Math.sin(p.angle) * p.speed;
+                    } else if (minDist > 280) {
+                        p.vx = Math.cos(p.angle) * p.speed;
+                        p.vy = Math.sin(p.angle) * p.speed;
+                    } else {
+                        // Strafe
+                        p.vx = -Math.sin(p.angle) * p.speed;
+                        p.vy = Math.cos(p.angle) * p.speed;
+                    }
+
+                    // Shoot
+                    const now = Date.now();
+                    const w = p.weapons[p.currentWeaponIndex];
+                    if (now - w.lastShot > w.fireRate && !w.reloading) {
+                        shootWeapon(p.x, p.y, p.angle, true, w.damage);
+                        w.lastShot = now;
+                    }
+                } else if (nearestLoot) {
+                    const lAngle = Math.atan2(nearestLoot.y - p.y, nearestLoot.x - p.x);
+                    p.angle = lAngle;
+                    p.vx = Math.cos(lAngle) * p.speed;
+                    p.vy = Math.sin(lAngle) * p.speed;
+                } else {
+                    // Push toward Directorate Mainframe
+                    const bAngle = Math.atan2(Game.directorateBase.y - p.y, Game.directorateBase.x - p.x);
+                    p.angle = bAngle;
+                    p.vx = Math.cos(bAngle) * p.speed;
+                    p.vy = Math.sin(bAngle) * p.speed;
+                }
+            } else {
+                // Manual Player Controls
+                let moveX = 0, moveY = 0;
+                if (Game.keys['w']) moveY -= 1;
+                if (Game.keys['s']) moveY += 1;
+                if (Game.keys['a']) moveX -= 1;
+                if (Game.keys['d']) moveX += 1;
+
+                p.isSprinting = Game.keys['shift'] && p.stamina > 5;
+                p.isCrouching = Game.keys['c'];
+
+                let currentSpeed = p.speed;
+                if (p.isSprinting) {
+                    currentSpeed *= 1.7;
+                    p.stamina = Math.max(0, p.stamina - 0.4);
+                } else if (p.isCrouching) {
+                    currentSpeed *= 0.5;
+                } else if (p.stamina < 100) {
+                    p.stamina = Math.min(100, p.stamina + 0.25);
+                }
+
+                if (moveX !== 0 && moveY !== 0) {
+                    moveX *= 0.7071; moveY *= 0.7071;
+                }
+
+                p.vx = moveX * currentSpeed;
+                p.vy = moveY * currentSpeed;
+                p.angle = Math.atan2(Game.mouse.y - p.y, Game.mouse.x - p.x);
+
+                // Manual shooting
+                if (Game.mouse.down) {
+                    const now = Date.now();
+                    const w = p.weapons[p.currentWeaponIndex];
+                    if (now - w.lastShot > w.fireRate && !w.reloading) {
+                        shootWeapon(p.x, p.y, p.angle, true, w.damage);
+                        w.lastShot = now;
+                    }
+                }
+            }
+
+            p.x = Math.max(30, Math.min(Game.width - 30, p.x + p.vx));
+            p.y = Math.max(30, Math.min(Game.height - 30, p.y + p.vy));
+
+            // Bullets update
+            for (let i = Game.bullets.length - 1; i >= 0; i--) {
+                const b = Game.bullets[i];
+                b.x += b.vx;
+                b.y += b.vy;
+                b.distance += Math.hypot(b.vx, b.vy);
+
+                if (b.distance > b.maxDistance || b.x < 0 || b.x > Game.width || b.y < 0 || b.y > Game.height) {
+                    Game.bullets.splice(i, 1);
+                    continue;
+                }
+
+                // Bullet vs Enemies
+                if (b.isPlayer) {
+                    for (let j = Game.enemies.length - 1; j >= 0; j--) {
+                        const e = Game.enemies[j];
+                        if (Math.hypot(b.x - e.x, b.y - e.y) < e.radius) {
+                            createParticles(b.x, b.y, "#ff3366", 6);
+                            e.hp -= b.damage;
+                            e.alertness = 100;
+                            e.state = "ATTACK";
+                            Game.bullets.splice(i, 1);
+
+                            if (e.hp <= 0) {
+                                createParticles(e.x, e.y, "#ffaa00", 16);
+                                Game.score += (e.type === "Commander" ? 1500 : (e.type === "Heavy" ? 800 : 400));
+                                Game.credits += 120;
+                                Game.kills++;
+                                if (Game.kills % 5 === 0) Game.level++;
+                                if (Math.random() < 0.6) spawnLoot(e.x, e.y, Math.random() < 0.5 ? "medkit" : "ammo");
+                                showToast(`Directorate ${e.type} Neutralized (+${e.type === 'Commander'?1500:500} pts)`);
+                                Game.enemies.splice(j, 1);
+
+                                // Check respawn reinforcements
+                                if (Game.enemies.length < 3) {
+                                    setTimeout(() => {
+                                        spawnEnemy(Game.directorateBase.x + (Math.random()*60-30), Game.directorateBase.y + (Math.random()*60-30), "Soldier");
+                                    }, 2000);
+                                }
+                            }
+                            break;
+                        }
+                    }
+                } else {
+                    // Bullet vs Player
+                    if (Math.hypot(b.x - p.x, b.y - p.y) < 18) {
+                        createParticles(b.x, b.y, "#00f0ff", 8);
+                        let dmg = b.damage;
+                        if (p.armor > 0) {
+                            const armorDmg = Math.min(p.armor, dmg * 0.7);
+                            p.armor -= armorDmg;
+                            dmg -= armorDmg;
+                        }
+                        p.health = Math.max(0, p.health - dmg);
+                        playSound(120, 'sawtooth', 0.15, 0.2);
+                        Game.bullets.splice(i, 1);
+
+                        if (p.health <= 0) {
+                            showToast("CRITICAL: Operative Down! Respawning at Safehouse...");
+                            p.health = 100;
+                            p.armor = 50;
+                            p.x = 200;
+                            p.y = 360;
+                        }
+                    }
+                }
+            }
+
+            // Enemies AI Update
+            for (const e of Game.enemies) {
+                const distToPlayer = Math.hypot(p.x - e.x, p.y - e.y);
+                const angleToPlayer = Math.atan2(p.y - e.y, p.x - e.x);
+
+                if (distToPlayer < 380) {
+                    e.alertness = Math.min(100, e.alertness + 2);
+                    if (e.alertness > 50) e.state = "ATTACK";
+                } else {
+                    e.alertness = Math.max(0, e.alertness - 0.2);
+                    if (e.alertness === 0) e.state = "PATROL";
+                }
+
+                if (e.state === "ATTACK") {
+                    e.angle = angleToPlayer;
+                    if (distToPlayer > 180) {
+                        e.x += Math.cos(e.angle) * e.speed;
+                        e.y += Math.sin(e.angle) * e.speed;
+                    } else if (distToPlayer < 120) {
+                        e.x -= Math.cos(e.angle) * (e.speed * 0.8);
+                        e.y -= Math.sin(e.angle) * (e.speed * 0.8);
+                    }
+
+                    // Enemy Shoot
+                    const now = Date.now();
+                    if (now - e.lastShot > 1100 && distToPlayer < 350) {
+                        shootWeapon(e.x, e.y, e.angle, false, e.type === "Heavy" ? 22 : 14);
+                        e.lastShot = now;
+                    }
+                } else {
+                    // Patrol around origin
+                    const dOrigin = Math.hypot(e.patrolOrigin.x - e.x, e.patrolOrigin.y - e.y);
+                    if (dOrigin > 80) {
+                        e.angle = Math.atan2(e.patrolOrigin.y - e.y, e.patrolOrigin.x - e.x);
+                    }
+                    e.x += Math.cos(e.angle) * (e.speed * 0.4);
+                    e.y += Math.sin(e.angle) * (e.speed * 0.4);
+                }
+            }
+
+            // Loot collection
+            for (const l of Game.loot) {
+                if (!l.collected && Math.hypot(p.x - l.x, p.y - l.y) < 28) {
+                    l.collected = true;
+                    createParticles(l.x, l.y, "#00ffaa", 10);
+                    playSound(800, 'sine', 0.15, 0.2);
+
+                    if (l.type === "medkit") {
+                        p.health = Math.min(100, p.health + 40);
+                        showToast("+40 HP: Military Medkit Used");
+                    } else if (l.type === "ammo") {
+                        for (const w of p.weapons) w.reserve += w.maxAmmo * 2;
+                        showToast("+Ammo Cache Restocked");
+                    } else if (l.type === "cipher") {
+                        Game.score += 5000;
+                        Game.credits += 800;
+                        showToast("MISSION OBJECTIVE: Blackout Cipher Drive Acquired! (+5000 pts)");
+                    }
+                }
+            }
+
+            // Particles update
+            for (let i = Game.particles.length - 1; i >= 0; i--) {
+                const pt = Game.particles[i];
+                pt.x += pt.vx;
+                pt.y += pt.vy;
+                pt.life -= pt.decay;
+                if (pt.life <= 0) Game.particles.splice(i, 1);
+            }
+
+            updateHUD();
+        }
+
+        function updateHUD() {
+            const p = Game.player;
+            const w = p.weapons[p.currentWeaponIndex];
+            document.getElementById('hp-val').textContent = Math.round(p.health);
+            document.getElementById('bar-hp').style.width = p.health + '%';
+            document.getElementById('stm-val').textContent = Math.round(p.stamina);
+            document.getElementById('bar-stm').style.width = p.stamina + '%';
+            document.getElementById('arm-val').textContent = Math.round(p.armor);
+            document.getElementById('bar-arm').style.width = (p.armor * 2) + '%';
+
+            document.getElementById('weapon-name').textContent = w.name;
+            document.getElementById('ammo-count').textContent = w.reloading ? "RELOADING..." : `${w.ammo} / ${w.reserve}`;
+
+            document.getElementById('score-display').textContent = Game.score.toLocaleString();
+            document.getElementById('credits-display').textContent = Game.credits;
+            document.getElementById('level-display').textContent = Game.level;
+            document.getElementById('kills-display').textContent = Game.kills;
+        }
+
+        // Render Canvas
+        function draw() {
+            ctx.fillStyle = "#07090e";
+            ctx.fillRect(0, 0, Game.width, Game.height);
+
+            // Grid background
+            ctx.strokeStyle = "rgba(0, 240, 255, 0.04)";
+            ctx.lineWidth = 1;
+            for (let x = 0; x < Game.width; x += 40) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, Game.height); ctx.stroke();
+            }
+            for (let y = 0; y < Game.height; y += 40) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(Game.width, y); ctx.stroke();
+            }
+
+            // Structures
+            for (const s of Game.structures) {
+                ctx.fillStyle = "rgba(16, 24, 38, 0.9)";
+                ctx.strokeStyle = "rgba(0, 240, 255, 0.25)";
+                ctx.lineWidth = 2;
+                ctx.fillRect(s.x, s.y, s.w, s.h);
+                ctx.strokeRect(s.x, s.y, s.w, s.h);
+
+                ctx.fillStyle = "rgba(0, 240, 255, 0.6)";
+                ctx.font = "10px 'JetBrains Mono'";
+                ctx.fillText(s.label, s.x + 10, s.y + 20);
+            }
+
+            // Directorate Citadel Base
+            ctx.fillStyle = "rgba(255, 0, 85, 0.06)";
+            ctx.strokeStyle = "rgba(255, 0, 85, 0.35)";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(Game.directorateBase.x, Game.directorateBase.y, Game.directorateBase.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = "rgba(255, 0, 85, 0.7)";
+            ctx.font = "12px 'JetBrains Mono'";
+            ctx.fillText("DIRECTORATE CITADEL // RESTRICTED", Game.directorateBase.x - 110, Game.directorateBase.y - Game.directorateBase.radius - 10);
+
+            // Loot Items
+            for (const l of Game.loot) {
+                if (l.collected) continue;
+                ctx.beginPath();
+                ctx.arc(l.x, l.y, l.radius, 0, Math.PI * 2);
+                ctx.fillStyle = l.type === "medkit" ? "#00ffaa" : (l.type === "cipher" ? "#00f0ff" : "#ffaa00");
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = ctx.fillStyle;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                ctx.fillStyle = "#fff";
+                ctx.font = "10px 'JetBrains Mono'";
+                ctx.fillText(l.type.toUpperCase(), l.x - 14, l.y - 16);
+            }
+
+            // Bullets
+            for (const b of Game.bullets) {
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.isPlayer ? 3 : 2.5, 0, Math.PI * 2);
+                ctx.fillStyle = b.isPlayer ? "#00f0ff" : "#ff3366";
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = ctx.fillStyle;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+
+            // Enemies
+            for (const e of Game.enemies) {
+                // Vision Cone
+                ctx.fillStyle = e.state === "ATTACK" ? "rgba(255, 0, 85, 0.12)" : "rgba(255, 170, 0, 0.06)";
+                ctx.beginPath();
+                ctx.moveTo(e.x, e.y);
+                ctx.arc(e.x, e.y, 160, e.angle - 0.6, e.angle + 0.6);
+                ctx.closePath();
+                ctx.fill();
+
+                // Body
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
+                ctx.fillStyle = e.color;
+                ctx.fill();
+                ctx.strokeStyle = "#fff";
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                // Gun Barrel
+                ctx.strokeStyle = "#fff";
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(e.x, e.y);
+                ctx.lineTo(e.x + Math.cos(e.angle) * (e.radius + 10), e.y + Math.sin(e.angle) * (e.radius + 10));
+                ctx.stroke();
+
+                // Health bar
+                ctx.fillStyle = "rgba(0,0,0,0.6)";
+                ctx.fillRect(e.x - 18, e.y - e.radius - 12, 36, 4);
+                ctx.fillStyle = "#ff3366";
+                ctx.fillRect(e.x - 18, e.y - e.radius - 12, 36 * (e.hp / e.maxHp), 4);
+
+                // Type label
+                ctx.fillStyle = "#fff";
+                ctx.font = "10px 'JetBrains Mono'";
+                ctx.fillText(e.type, e.x - 14, e.y + e.radius + 14);
+            }
+
+            // Particles
+            for (const pt of Game.particles) {
+                ctx.fillStyle = pt.color;
+                ctx.globalAlpha = pt.life;
+                ctx.fillRect(pt.x, pt.y, 3, 3);
+            }
+            ctx.globalAlpha = 1.0;
+
+            // Player
+            const p = Game.player;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 16, 0, Math.PI * 2);
+            ctx.fillStyle = "#00f0ff";
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = "#00f0ff";
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Player Gun
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x + Math.cos(p.angle) * 26, p.y + Math.sin(p.angle) * 26);
+            ctx.stroke();
+
+            // Laser Sight
+            ctx.strokeStyle = "rgba(0, 240, 255, 0.35)";
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(p.x + Math.cos(p.angle) * 26, p.y + Math.sin(p.angle) * 26);
+            ctx.lineTo(p.x + Math.cos(p.angle) * 600, p.y + Math.sin(p.angle) * 600);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // Game Loop Runner
+        let lastTime = performance.now();
+        function loop(now) {
+            const dt = (now - lastTime) / 1000;
+            lastTime = now;
+            update(dt);
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        initMap();
+        requestAnimationFrame(loop);
     </script>
 </body>
-</html>
-    """
-
-
-@app.get("/health", tags=["Health"])
-async def health_check():
-    return {
-        "status": "healthy",
-        "service": settings.PROJECT_NAME,
-        "version": settings.VERSION
-    }
+</html>"""

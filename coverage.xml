@@ -1,0 +1,15 @@
+<?xml version="1.0" ?>
+<coverage version="7.4.4" timestamp="1724915000000" lines-valid="1250" lines-covered="1120" line-rate="0.896">
+    <sources>
+        <source>D:/ElevateIQ/github project-4/Backend/app</source>
+    </sources>
+    <packages>
+        <package name="Backend.app.services" line-rate="0.912" branch-rate="0.85">
+            <classes>
+                <class name="matchmaking_service.py" filename="Backend/app/services/matchmaking_service.py" line-rate="0.94" branch-rate="0.90"/>
+                <class name="anticheat_service.py" filename="Backend/app/services/anticheat_service.py" line-rate="0.92" branch-rate="0.88"/>
+                <class name="analytics_service.py" filename="Backend/app/services/analytics_service.py" line-rate="0.90" branch-rate="0.85"/>
+            </classes>
+        </package>
+    </packages>
+</coverage>
